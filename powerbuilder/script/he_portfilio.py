@@ -4,8 +4,8 @@ from datetime import datetime
 from decimal import Decimal, InvalidOperation
 import yfinance as yf
 from tabulate import tabulate
-from HE_Database_Connect import get_connection
-from HE_Error_Logs import log_error_to_db
+from HE_database_connect import get_connection
+from HE_error_logs import log_error_to_db
 
 # ------------------ Pandas Display Settings ------------------
 pd.set_option('display.max_rows', None)
@@ -44,7 +44,7 @@ def process_fifo(transactions):
             quantity = Decimal(t['quantity'])
             price = Decimal(t['price'])
         except InvalidOperation:
-            log_error_to_db("HE_Portfolio.py", f"Invalid transaction skipped: {t}")
+            log_error_to_db("HE_portfilio.py", f"Invalid transaction skipped: {t}")
             continue
 
         trade_type = t['trade_type'].lower()
@@ -88,7 +88,7 @@ def fetch_all_user_ids():
         conn.close()
         return user_ids
     except Exception as err:
-        log_error_to_db("HE_Portfolio.py", str(err))
+        log_error_to_db("HE_portfilio.py", str(err))
         return []
 
 def fetch_fifo_data(created_by):
@@ -207,7 +207,7 @@ def insert_summary_to_db(df):
         cursor = conn.cursor()
 
         for _, row in df.iterrows():
-            cursor.execute("""
+            sql = """
                 INSERT INTO he_portfolio_master (
                     ticker, quantity, avg_cost, total_cost, current_price, position_size,
                     unrealized_gain_loss, realized_gain_loss, first_buy_age, avg_age_days,
@@ -217,36 +217,94 @@ def insert_summary_to_db(df):
                     debt_equity, fcf_yield, revenue_growth, earnings_accuracy, category
                 ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                           %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """, tuple(row))
+                ON DUPLICATE KEY UPDATE
+                    quantity = VALUES(quantity),
+                    avg_cost = VALUES(avg_cost),
+                    total_cost = VALUES(total_cost),
+                    current_price = VALUES(current_price),
+                    position_size = VALUES(position_size),
+                    unrealized_gain_loss = VALUES(unrealized_gain_loss),
+                    realized_gain_loss = VALUES(realized_gain_loss),
+                    first_buy_age = VALUES(first_buy_age),
+                    avg_age_days = VALUES(avg_age_days),
+                    platform = VALUES(platform),
+                    industry_pe = VALUES(industry_pe),
+                    current_pe = VALUES(current_pe),
+                    price_sales_ratio = VALUES(price_sales_ratio),
+                    price_book_ratio = VALUES(price_book_ratio),
+                    50_day_ema = VALUES(50_day_ema),
+                    100_day_ema = VALUES(100_day_ema),
+                    200_day_ema = VALUES(200_day_ema),
+                    sp_500_ya = VALUES(sp_500_ya),
+                    nasdaq_ya = VALUES(nasdaq_ya),
+                    russell_1000_ya = VALUES(russell_1000_ya),
+                    pe_ratio = VALUES(pe_ratio),
+                    peg_ratio = VALUES(peg_ratio),
+                    roe = VALUES(roe),
+                    net_profit_margin = VALUES(net_profit_margin),
+                    current_ratio = VALUES(current_ratio),
+                    debt_equity = VALUES(debt_equity),
+                    fcf_yield = VALUES(fcf_yield),
+                    revenue_growth = VALUES(revenue_growth),
+                    earnings_accuracy = VALUES(earnings_accuracy),
+                    category = VALUES(category)
+            """
+            cursor.execute(sql, tuple(row))
 
         conn.commit()
         cursor.close()
         conn.close()
-        print("✅ Portfolio summary inserted.")
+        print("✅ Portfolio summary inserted/updated without duplicates.")
     except Exception as err:
         log_error_to_db("HE_Portfolio.py", str(err))
 
+
+# # ------------------ Main ------------------
+# def main():
+#     user_ids = fetch_all_user_ids()
+#     if not user_ids:
+#         print("❌ No users found.")
+#         return
+
+#     for user_id in user_ids:
+#         print(f"\n📥 Processing user: {user_id}")
+#         rows = fetch_fifo_data(user_id)
+
+#         if not rows:
+#             print(f"⚠️ No transactions for user {user_id}")
+#             continue
+
+#         df = build_summary(rows)
+#         if not df.empty:
+#             print(tabulate(df, headers='keys', tablefmt='fancy_grid', showindex=False))
+#             insert_summary_to_db(df)
+#         else:
+#             print(f"⚠️ No data to insert for user {user_id}")
+
+# if __name__ == "__main__":
+#     main()
 # ------------------ Main ------------------
+import sys
+
 def main():
-    user_ids = fetch_all_user_ids()
-    if not user_ids:
-        print("❌ No users found.")
+    if len(sys.argv) < 2:
+        print("Usage: python HE_portfolio.py <user_id>")
+        return
+        
+    user_id = sys.argv[1]
+    print(f"\n📥 Processing user: {user_id}")
+
+    rows = fetch_fifo_data(user_id)
+    if not rows:
+        print(f"⚠️ No transactions for user {user_id}")
         return
 
-    for user_id in user_ids:
-        print(f"\n📥 Processing user: {user_id}")
-        rows = fetch_fifo_data(user_id)
-
-        if not rows:
-            print(f"⚠️ No transactions for user {user_id}")
-            continue
-
-        df = build_summary(rows)
-        if not df.empty:
-            print(tabulate(df, headers='keys', tablefmt='fancy_grid', showindex=False))
-            insert_summary_to_db(df)
-        else:
-            print(f"⚠️ No data to insert for user {user_id}")
+    df = build_summary(rows)
+    if not df.empty:
+        print(tabulate(df, headers='keys', tablefmt='fancy_grid', showindex=False))
+        insert_summary_to_db(df)
+    else:
+        print(f"⚠️ No data to insert for user {user_id}")
 
 if __name__ == "__main__":
     main()
