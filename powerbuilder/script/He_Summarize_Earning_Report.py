@@ -1,10 +1,13 @@
 import requests
 import nltk
+import traceback
+import os
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
-from HE_Database_Connect import get_connection 
-from HE_Error_Logs import log_error_to_db      
-nltk.download('vader_lexicon', quiet=True)
+from HE_database_connect import get_connection
+from HE_error_logs import log_error_to_db
 
+# Download VADER lexicon silently
+nltk.download('vader_lexicon', quiet=True)
 
 symbol = "TSLA"
 fmp_api_key = "FAoCdSNAiQpDYc8C4HgcrOgqxXARc0nz"
@@ -21,7 +24,7 @@ class EarningsAnalyzer:
     def fetch_earnings_data(self):
         try:
             print(f"Requesting data for {self.symbol}...")
-            response = requests.get(self.api_url)
+            response = requests.get(self.api_url, timeout=10)
             if response.status_code == 200:
                 earnings_list = response.json()
                 if isinstance(earnings_list, list) and len(earnings_list) > 0:
@@ -30,9 +33,14 @@ class EarningsAnalyzer:
                     print("No earnings data found.")
             else:
                 print(f"API request failed with status code {response.status_code}")
-        except Exception as e:
-            print(f"Error fetching earnings data: {e}")
-            log_error_to_db("he_summarize_earings_report.py", str(e), created_by="fetch_earnings_data")
+        except Exception:
+            error_message = traceback.format_exc()
+            log_error_to_db(
+                file_name=os.path.basename(__file__),
+                error_description=error_message,
+                created_by=None,
+                env="dev"
+            )
         return None
 
     def generate_summary(self):
@@ -41,23 +49,35 @@ class EarningsAnalyzer:
                 return (
                     f"{self.symbol} reported earnings with the following key highlights:\n"
                     f"Date                : {self.data.get('date', 'N/A')}\n"
-                    f"Total Revenue       : ${self.data.get('revenue', 'N/A'):,}\n"
-                    f"Net Income          : ${self.data.get('netIncome', 'N/A'):,}\n"
+                    f"Total Revenue       : ${self.data.get('revenue', 0):,}\n"
+                    f"Net Income          : ${self.data.get('netIncome', 0):,}\n"
                     f"EPS                 : {self.data.get('eps', 'N/A')}\n"
-                    f"Operating Income    : ${self.data.get('operatingIncome', 'N/A'):,}\n"
-                    f"Gross Profit        : ${self.data.get('grossProfit', 'N/A'):,}\n"
-                    f"Operating Expenses  : ${self.data.get('operatingExpenses', 'N/A'):,}\n"
-                    f"Cost of Revenue     : ${self.data.get('costOfRevenue', 'N/A'):,}\n"
+                    f"Operating Income    : ${self.data.get('operatingIncome', 0):,}\n"
+                    f"Gross Profit        : ${self.data.get('grossProfit', 0):,}\n"
+                    f"Operating Expenses  : ${self.data.get('operatingExpenses', 0):,}\n"
+                    f"Cost of Revenue     : ${self.data.get('costOfRevenue', 0):,}\n"
                 )
-            except Exception as e:
-                log_error_to_db("he_summarize_earings_report.py", str(e), created_by="generate_summary")
+            except Exception:
+                error_message = traceback.format_exc()
+                log_error_to_db(
+                    file_name=os.path.basename(__file__),
+                    error_description=error_message,
+                    created_by=None,
+                    env="dev"
+                )
         return "No data available."
 
     def analyze_sentiment(self):
         try:
             return self.vader.polarity_scores(self.summary)
-        except Exception as e:
-            log_error_to_db("he_summarize_earings_report.py", str(e), created_by="analyze_sentiment")
+        except Exception:
+            error_message = traceback.format_exc()
+            log_error_to_db(
+                file_name=os.path.basename(__file__),
+                error_description=error_message,
+                created_by=None,
+                env="dev"
+            )
             return {"compound": 0, "pos": 0, "neu": 1, "neg": 0}
 
     def sentiment_label(self, compound_score):
@@ -79,7 +99,7 @@ class EarningsAnalyzer:
             cursor = conn.cursor()
 
             insert_query = """
-            INSERT INTO earnings_data (
+            INSERT INTO he_earnings_data (
                 symbol, date, revenue, net_income, eps, operating_income, gross_profit,
                 operating_expenses, cost_of_revenue, sentiment_compound, sentiment_pos,
                 sentiment_neu, sentiment_neg
@@ -104,15 +124,23 @@ class EarningsAnalyzer:
 
             cursor.execute(insert_query, values)
             conn.commit()
-            print(f"Data for {self.symbol} successfully saved to database.")
-        except Exception as e:
-            print(f"Error saving data to database: {e}")
-            log_error_to_db("he_summarize_earings_report.py", str(e), created_by="save_to_database")
+            print(f"✅ Data for {self.symbol} successfully saved to database.")
+        except Exception:
+            error_message = traceback.format_exc()
+            print(f"[DB ERROR] Failed to save data for {self.symbol}. Check logs.")
+            log_error_to_db(
+                file_name=os.path.basename(__file__),
+                error_description=error_message,
+                created_by=None,
+                env="dev"
+            )
         finally:
             try:
-                cursor.close()
-                conn.close()
-            except:
+                if 'cursor' in locals():
+                    cursor.close()
+                if 'conn' in locals() and conn.is_connected():
+                    conn.close()
+            except Exception:
                 pass
 
     def display_results(self):
@@ -138,8 +166,14 @@ class EarningsAnalyzer:
             print(f"Final Sentiment Label: {label}")
 
             self.save_to_database()
-        except Exception as e:
-            log_error_to_db("he_summarize_earings_report.py", str(e), created_by="display_results")
+        except Exception:
+            error_message = traceback.format_exc()
+            log_error_to_db(
+                file_name=os.path.basename(__file__),
+                error_description=error_message,
+                created_by=None,
+                env="dev"
+            )
 
 if __name__ == "__main__":
     analyzer = EarningsAnalyzer(symbol, url)

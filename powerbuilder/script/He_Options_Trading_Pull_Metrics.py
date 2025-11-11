@@ -1,11 +1,17 @@
+import os
+import sys
 import yfinance as yf
 import pandas as pd
 import numpy as np
-from tabulate import tabulate
 import traceback
+from tabulate import tabulate
+import mysql.connector
 
-from HE_Database_Connect import get_connection
-from HE_Error_Logs import log_error_to_db 
+sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+
+from HE_database_connect import get_connection
+from HE_error_logs import log_error_to_db
+
 
 def get_stock_data(symbol: str):
     try:
@@ -15,8 +21,15 @@ def get_stock_data(symbol: str):
             raise ValueError(f"No stock data available for {symbol}.")
         return df
     except Exception:
-        log_error_to_db("he_option_trading_pull_matrics.py", traceback.format_exc(), created_by="data_fetch")
+        error_message = traceback.format_exc()
+        log_error_to_db(
+            file_name=os.path.basename(__file__),
+            error_description=error_message,
+            created_by=None,
+            env="dev"
+        )
         return None
+
 
 def calculate_macd(df):
     try:
@@ -26,8 +39,15 @@ def calculate_macd(df):
         df["Signal"] = df["MACD"].ewm(span=9, adjust=False).mean()
         return round(df["MACD"].iloc[-1], 2), round(df["Signal"].iloc[-1], 2)
     except Exception:
-        log_error_to_db("he_option_trading_pull_matrics.py", traceback.format_exc(), created_by="macd_calc")
+        error_message = traceback.format_exc()
+        log_error_to_db(
+            file_name=os.path.basename(__file__),
+            error_description=error_message,
+            created_by=None,
+            env="dev"
+        )
         return 0, 0
+
 
 def calculate_bollinger_bands(df, period=20):
     try:
@@ -37,22 +57,43 @@ def calculate_bollinger_bands(df, period=20):
         df["Lower Band"] = df["SMA"] - (2 * df["STD"])
         return round(df["Upper Band"].iloc[-1], 2), round(df["Lower Band"].iloc[-1], 2)
     except Exception:
-        log_error_to_db("he_option_trading_pull_matrics.py", traceback.format_exc(), created_by="bollinger_calc")
+        error_message = traceback.format_exc()
+        log_error_to_db(
+            file_name=os.path.basename(__file__),
+            error_description=error_message,
+            created_by=None,
+            env="dev"
+        )
         return 0, 0
+
 
 def calculate_sma(df, period=20):
     try:
         return round(df["Close"].rolling(window=period).mean().iloc[-1], 2)
     except Exception:
-        log_error_to_db("he_option_trading_pull_matrics.py", traceback.format_exc(), created_by="sma_calc")
+        error_message = traceback.format_exc()
+        log_error_to_db(
+            file_name=os.path.basename(__file__),
+            error_description=error_message,
+            created_by=None,
+            env="dev"
+        )
         return 0
+
 
 def calculate_ema(df, period=20):
     try:
         return round(df["Close"].ewm(span=period, adjust=False).mean().iloc[-1], 2)
     except Exception:
-        log_error_to_db("he_option_trading_pull_matrics.py", traceback.format_exc(), created_by="ema_calc")
+        error_message = traceback.format_exc()
+        log_error_to_db(
+            file_name=os.path.basename(__file__),
+            error_description=error_message,
+            created_by=None,
+            env="dev"
+        )
         return 0
+
 
 def calculate_fibonacci_levels(df):
     try:
@@ -67,8 +108,15 @@ def calculate_fibonacci_levels(df):
             "Fib 78.6%": round(recent_high - 0.786 * diff, 2),
         }
     except Exception:
-        log_error_to_db("he_option_trading_pull_matrics.py", traceback.format_exc(), created_by="fibonacci_calc")
+        error_message = traceback.format_exc()
+        log_error_to_db(
+            file_name=os.path.basename(__file__),
+            error_description=error_message,
+            created_by=None,
+            env="dev"
+        )
         return {k: 0 for k in ["Fib 23.6%", "Fib 38.2%", "Fib 50.0%", "Fib 61.8%", "Fib 78.6%"]}
+
 
 def calculate_atr(df, period=14):
     try:
@@ -79,8 +127,15 @@ def calculate_atr(df, period=14):
         df["ATR"] = df["TR"].rolling(window=period).mean()
         return round(df["ATR"].iloc[-1], 2)
     except Exception:
-        log_error_to_db("he_option_trading_pull_matrics.py", traceback.format_exc(), created_by="atr_calc")
+        error_message = traceback.format_exc()
+        log_error_to_db(
+            file_name=os.path.basename(__file__),
+            error_description=error_message,
+            created_by=None,
+            env="dev"
+        )
         return 0
+
 
 def calculate_stochastic(df, k_period=14, d_period=3):
     try:
@@ -90,8 +145,15 @@ def calculate_stochastic(df, k_period=14, d_period=3):
         df["%D"] = df["%K"].rolling(window=d_period).mean()
         return round(df["%K"].iloc[-1], 2), round(df["%D"].iloc[-1], 2)
     except Exception:
-        log_error_to_db("he_option_trading_pull_matrics.py", traceback.format_exc(), created_by="stochastic_calc")
+        error_message = traceback.format_exc()
+        log_error_to_db(
+            file_name=os.path.basename(__file__),
+            error_description=error_message,
+            created_by=None,
+            env="dev"
+        )
         return 0, 0
+
 
 def calculate_rsi(df, period=14):
     try:
@@ -104,7 +166,13 @@ def calculate_rsi(df, period=14):
         rsi = 100 - (100 / (1 + rs))
         return round(rsi.iloc[-1], 2)
     except Exception:
-        log_error_to_db("he_option_trading_pull_matrics.py", traceback.format_exc(), created_by="rsi_calc")
+        error_message = traceback.format_exc()
+        log_error_to_db(
+            file_name=os.path.basename(__file__),
+            error_description=error_message,
+            created_by=None,
+            env="dev"
+        )
         return 0
 
 
@@ -112,7 +180,8 @@ def store_data_in_db(data):
     try:
         conn = get_connection()
         cursor = conn.cursor()
-        sql = """INSERT INTO stocks (symbol, latest_price, macd, signal_macd, boll_upper, boll_lower,
+
+        sql = """INSERT INTO he_stocks (symbol, latest_price, macd, signal_macd, boll_upper, boll_lower,
                                             atr, volume, stoch_k, stoch_d, sma, ema,
                                             fib_23_6, fib_38_2, fib_50, fib_61, fib_78_6, rsi)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -126,7 +195,7 @@ def store_data_in_db(data):
                             fib_23_6=VALUES(fib_23_6), fib_38_2=VALUES(fib_38_2),
                             fib_50=VALUES(fib_50), fib_61=VALUES(fib_61),
                             fib_78_6=VALUES(fib_78_6), rsi=VALUES(rsi)"""
-        
+
         converted_data = [
             tuple(float(x) if isinstance(x, (np.float64, np.float32)) else int(x) if isinstance(x, (np.int64, np.int32)) else x for x in row)
             for row in data
@@ -137,9 +206,16 @@ def store_data_in_db(data):
         cursor.close()
         conn.close()
         print(" Data stored successfully!")
-    except Exception:
-        log_error_to_db("he_option_trading_pull_matrics.py", traceback.format_exc(), created_by="db_store")
+    except mysql.connector.Error as err:
+        error_message = traceback.format_exc()
+        log_error_to_db(
+            file_name=os.path.basename(__file__),
+            error_description=error_message,
+            created_by=None,
+            env="dev"
+        )
         print(" Database Error - Logged")
+
 
 if __name__ == "__main__":
     stock_symbols = ["AAPL", "MSFT", "GOOGL", "CAVA", "AMZN", "TSLA", "TMDX"]
@@ -167,7 +243,13 @@ if __name__ == "__main__":
                     fib_levels["Fib 61.8%"], fib_levels["Fib 78.6%"], rsi
                 ])
             except Exception:
-                log_error_to_db("he_option_trading_pull_matrics.py", traceback.format_exc(), created_by=f"{symbol}_loop")
+                error_message = traceback.format_exc()
+                log_error_to_db(
+                    file_name=os.path.basename(__file__),
+                    error_description=error_message,
+                    created_by=None,
+                    env="dev"
+                )
 
     headers = [
         "Symbol", "Price", "MACD", "Signal",

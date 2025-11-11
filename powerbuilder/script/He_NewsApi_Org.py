@@ -2,74 +2,163 @@ import requests
 from textblob import TextBlob
 from datetime import date, timedelta
 import time
+import sys
+import os
 import traceback
+import mysql.connector
 
-from HE_Database_Connect import get_connection
-from HE_Error_Logs import  log_error_to_db
+# === Ensure local module imports work ===
+sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
+# === Import error logger and DB connector ===
+from HE_error_logs import log_error_to_db
+from HE_database_connect import get_connection
+
+# === API Key & Settings ===
 API_KEY = '6a2e7b8388724ec7b7420c74d3bb2844'
-symbol = 'AAPL'
-interval_minutes = 10
-interval_seconds = interval_minutes * 60
+SYMBOLS = ['AAPL', 'MSFT', 'SPY', 'NVDA']  # Add more symbols if needed
+FETCH_DAYS = 3   # Fetch news for the past N days
+INTERVAL_MINUTES = 10
+INTERVAL_SECONDS = INTERVAL_MINUTES * 60
+
 
 
 def get_sentiment(text):
-    blob = TextBlob(text)
-    polarity = blob.sentiment.polarity
-    if polarity > 0.1:
-        return "Positive"
-    elif polarity < -0.1:
-        return "Negative"
-    else:
+    """Analyze sentiment polarity using TextBlob."""
+    try:
+        blob = TextBlob(text or "")
+        polarity = blob.sentiment.polarity
+        if polarity > 0.1:
+            return "Positive"
+        elif polarity < -0.1:
+            return "Negative"
+        else:
+            return "Neutral"
+    except Exception:
+        error_msg = traceback.format_exc()
+        error_message = traceback.format_exc()
+        log_error_to_db(
+            file_name=os.path.basename(__file__),
+            error_description=error_message,
+            created_by=None,
+            env="dev"
+        )
         return "Neutral"
+
+
+
+def fetch_news(symbol):
+    """Fetch recent news for a given symbol and return article list."""
+    try:
+        today = date.today()
+        start_date = today - timedelta(days=FETCH_DAYS)
+        url = (
+            f"https://newsapi.org/v2/everything?"
+            f"q={symbol}&from={start_date.isoformat()}&to={today.isoformat()}"
+            f"&apiKey={API_KEY}&language=en&sortBy=publishedAt"
+        )
+
+        response = requests.get(url, timeout=15)
+        data = response.json()
+
+        if response.status_code != 200:
+            error_detail = data.get("message", "Unknown API error")
+            log_error_to_db(
+                file_name=os.path.basename(__file__),
+                error_description=f"NewsAPI error {response.status_code}: {error_detail}",
+                created_by=None,
+                env="dev"
+            )
+            print(f"[API ERROR] {response.status_code}: {error_detail}")
+            return []
+
+        return data.get("articles", [])
+
+    except Exception:
+        error_msg = traceback.format_exc()
+        error_message = traceback.format_exc()
+        log_error_to_db(
+            file_name=os.path.basename(__file__),
+            error_description=error_message,
+            created_by=None,
+            env="dev"
+        )
+        print(f"[ERROR] Failed to fetch news for {symbol}")
+        return []
+
+
+def store_in_db(symbol, title, description, published_at, url_link, sentiment):
+    """Insert article sentiment record into MySQL table."""
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        insert_query = """
+        INSERT INTO he_news_sentiment 
+        (symbol, title, description, published_at, url, sentiment, created_at)
+        VALUES (%s, %s, %s, %s, %s, %s, NOW())
+        """
+
+        values = (symbol, title, description, published_at, url_link, sentiment)
+        cursor.execute(insert_query, values)
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+    except mysql.connector.Error as err:
+        error_msg = traceback.format_exc()
+        error_message = traceback.format_exc()
+        log_error_to_db(
+            file_name=os.path.basename(__file__),
+            error_description=error_message,
+            created_by=None,
+            env="dev"
+        )
+        print(f"[DB ERROR] Could not insert record for {symbol}: {err}")
 
 
 while True:
     try:
-        today = date.today()
-        yesterday = today - timedelta(days=1)
+        
+        print(f"[INFO] Fetching latest news at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+        
 
-        url = (
-            f'https://newsapi.org/v2/everything?q={symbol}'
-            f'&from={yesterday.isoformat()}'
-            f'&to={today.isoformat()}'
-            f'&apiKey={API_KEY}&language=en&sortBy=publishedAt'
+        for symbol in SYMBOLS:
+            print(f"\n🔍 Processing symbol: {symbol}")
+            articles = fetch_news(symbol)
+
+            if not articles:
+                print(f"[WARN] No news found for {symbol}")
+                continue
+
+            for article in articles[:5]:  # Only top 5 recent articles
+                title = article.get("title", "")
+                description = article.get("description", "")
+                published_at = article.get("publishedAt", "")
+                url_link = article.get("url", "")
+
+                combined_text = f"{title} {description}"
+                sentiment = get_sentiment(combined_text)
+
+                print(f"Title       : {title}")
+                print(f"Published At: {published_at}")
+                print(f"Sentiment   : {sentiment}")
+                print(f"URL         : {url_link}")
+                print("-" * 100)
+
+                store_in_db(symbol, title, description, published_at, url_link, sentiment)
+
+        print(f"\n✅ Completed news cycle. Waiting {INTERVAL_MINUTES} minutes...\n")
+
+    except Exception:
+        error_msg = traceback.format_exc()
+        print("[FATAL ERROR] Script encountered an error.")
+        error_message = traceback.format_exc()
+        log_error_to_db(
+            file_name=os.path.basename(__file__),
+            error_description=error_message,
+            created_by=None,
+            env="dev"
         )
 
-        response = requests.get(url)
-        response.raise_for_status()
-        data = response.json()
-
-        print(f"\n Top news articles for: {symbol} from {yesterday} to {today}\n")
-
-        if 'articles' in data and data['articles']:
-            for article in data['articles'][:5]:
-                try:
-                    title = article.get('title', '')
-                    description = article.get('description', '')
-                    published_at = article.get('publishedAt', '')
-                    url = article.get('url', '')
-
-                    sentiment = get_sentiment(f"{title} {description}")
-
-                    print(f" Symbol       : {symbol}")
-                    print(f" Title        : {title}")
-                    print(f" Description  : {description}")
-                    print(f" Published At : {published_at}")
-                    print(f" URL          : {url}")
-                    print(f" Sentiment    : {sentiment}")
-                    print("-" * 100)
-
-                  
-
-                except Exception as inner_err:
-                    log_error_to_db("he_newsapi_org.py", traceback.format_exc(), created_by="sentiment_loop")
-        else:
-            print(" No articles found for yesterday/today or an error occurred.")
-
-    except Exception as e:
-        error_description = traceback.format_exc()
-        log_error_to_db("he_newsapi_org.py", error_description, created_by="sentiment_loop")
-        print(f" Error fetching or processing news: {e}")
-
-    time.sleep(interval_seconds)
+    time.sleep(INTERVAL_SECONDS)
