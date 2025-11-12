@@ -4,17 +4,10 @@ from collections import deque, defaultdict
 from decimal import Decimal, InvalidOperation
 import yfinance as yf
 from tabulate import tabulate
+import mysql.connector
 import math
-import traceback
-import os
-import sys
-
-# Ensure local modules can be imported
-sys.path.append(os.path.abspath(os.path.dirname(__file__)))
-
 from HE_database_connect import get_connection
 from HE_error_logs import log_error_to_db  # Import error logging function
-
 
 def safe_round(val, digits=2):
     try:
@@ -22,12 +15,10 @@ def safe_round(val, digits=2):
     except (ValueError, TypeError, InvalidOperation):
         return 0
 
-
 def clean_dataframe(df):
     for col in df.columns:
         df[col] = df[col].apply(lambda x: None if isinstance(x, float) and (math.isinf(x) or math.isnan(x)) else x)
     return df
-
 
 def fetch_fifo_data():
     try:
@@ -45,16 +36,11 @@ def fetch_fifo_data():
         print(tabulate(rows, headers=["Ticker", "Date", "Type", "Qty", "Price", "Platform", "Created By"], tablefmt="grid"))
         return rows
 
-    except Exception:
-        error_message = traceback.format_exc()
-        log_error_to_db(
-            file_name=os.path.basename(__file__),
-            error_description=error_message,
-            created_by=None,
-            env="dev"
-        )
+    except mysql.connector.Error as err:
+        error_message = f"Database Error in fetch_fifo_data: {err}"
+        print(error_message)
+        log_error_to_db(error_message, type(err).__name__, "HE_portfilio_master_table.py", 1)
         return []
-
 
 def safe_get(df, keys):
     for key in keys:
@@ -66,26 +52,34 @@ def safe_get(df, keys):
 def get_index_return(ticker):
     try:
         hist = yf.Ticker(ticker).history(period="1y")
-        if hist.empty or 'Close' not in hist.columns or hist['Close'].isnull().all():
+        if hist.empty:
+            # No data found for the ticker
             return None
+        
+        # Ensure the 'Close' column exists and has data
+        if 'Close' not in hist.columns or hist['Close'].isnull().all():
+            return None
+        
         start_price = hist['Close'].iloc[0]
         end_price = hist['Close'].iloc[-1]
+
+        # Avoid division by zero just in case
         if start_price == 0:
             return None
+
         return round((end_price - start_price) / start_price * 100, 2)
     
-    except Exception:
-        error_message = traceback.format_exc()
-        log_error_to_db(
-            file_name=os.path.basename(__file__),
-            error_description=error_message,
-            created_by=None,
-            env="dev"
-        )
+    except Exception as e:
+        error_message = f"Error fetching index return for {ticker}: {e}"
+        print(error_message)
+        
+        # Assuming log_error_to_db is defined elsewhere
+        log_error_to_db(error_message, type(e).__name__, "HE_portfilio_master_table.py", 1)
+        
         return None
 
-
 # ---------- Index Returns ----------
+
 sp500_return = get_index_return("^GSPC")
 nasdaq_return = get_index_return("^IXIC")
 russell1000_return = get_index_return("^RUI")
@@ -94,6 +88,7 @@ grouped = defaultdict(list)
 platform_map = {}
 
 # ---------- Fetch Transactions and Group ----------
+
 for t in fetch_fifo_data():
     if len(t) != 7:
         print(f"Skipping invalid row (length != 7): {t}")
@@ -107,29 +102,20 @@ for t in fetch_fifo_data():
 
     try:
         qty = Decimal(qty) if qty is not None else Decimal('0')
-    except (InvalidOperation, TypeError):
-        error_message = traceback.format_exc()
-        log_error_to_db(
-            file_name=os.path.basename(__file__),
-            error_description=error_message,
-            created_by=None,
-            env="dev"
-        )
+    except (InvalidOperation, TypeError) as e:
+        print(f"⚠️ Invalid quantity for row: {t}")
+        log_error_to_db(f"Invalid quantity for row {t}: {e}", type(e).__name__, "HE_portfilio_master_table.py", created_by or 1)
         qty = Decimal('0')
 
     try:
         price = Decimal(price) if price is not None else Decimal('0')
-    except (InvalidOperation, TypeError):
-        error_message = traceback.format_exc()
-        log_error_to_db(
-            file_name=os.path.basename(__file__),
-            error_description=error_message,
-            created_by=None,
-            env="dev"
-        )
+    except (InvalidOperation, TypeError) as e:
+        print(f"⚠️ Invalid price for row: {t}")
+        log_error_to_db(f"Invalid price for row {t}: {e}", type(e).__name__, "HE_portfilio_master_table.py", created_by or 1)
         price = Decimal('0')
 
     if not date_obj:
+        print(f"⚠️ Missing date for row: {t}, using today's date")
         date_str = datetime.today().strftime("%Y-%m-%d")
     else:
         date_str = date_obj.strftime("%Y-%m-%d")
@@ -137,12 +123,12 @@ for t in fetch_fifo_data():
     grouped[ticker].append((date_str, ticker, action, qty, price, platform, created_by))
     platform_map[ticker] = platform
 
-
 # ---------- Process Each Ticker ----------
+
 summary_list = []
 
 for ticker, txns in grouped.items():
-    print(f"\nProcessing: {ticker}")
+    print(f"\n📊 Processing: {ticker}")
     holdings = deque()
     cumulative_buy_cost = Decimal('0')
     total_qty = Decimal('0')
@@ -153,22 +139,12 @@ for ticker, txns in grouped.items():
         stock = yf.Ticker(ticker)
         hist = stock.history(period="260d")
         if hist.empty or 'Close' not in hist:
-            print(f"Skipping {ticker} — No valid historical data.")
-            log_error_to_db(
-                file_name=os.path.basename(__file__),
-                error_description=f"No valid historical data for {ticker}",
-                created_by=None,
-                env="dev"
-            )
+            print(f"❌ Skipping {ticker} — No valid historical data.")
+            log_error_to_db(f"No valid historical data for {ticker}", "DataError", "HE_portfilio_master_table.py", txns[0][6] or 1)
             continue
-    except Exception:
-        error_message = traceback.format_exc()
-        log_error_to_db(
-            file_name=os.path.basename(__file__),
-            error_description=error_message,
-            created_by=None,
-            env="dev"
-        )
+    except Exception as e:
+        print(f"❌ Skipping {ticker} — Error fetching history: {e}")
+        log_error_to_db(f"Error fetching history for {ticker}: {e}", type(e).__name__, "HE_portfilio_master_table.py", txns[0][6] or 1)
         continue
 
     ema_50 = safe_round(hist['Close'].ewm(span=50, adjust=False).mean().iloc[-1])
@@ -179,14 +155,9 @@ for ticker, txns in grouped.items():
         info = stock.info
         current_price = Decimal(info.get('currentPrice', 0))
         category = info.get('sector', 'Unknown')
-    except Exception:
-        error_message = traceback.format_exc()
-        log_error_to_db(
-            file_name=os.path.basename(__file__),
-            error_description=error_message,
-            created_by=None,
-            env="dev"
-        )
+    except Exception as e:
+        print(f"⚠️ Failed to fetch info for {ticker}: {e}")
+        log_error_to_db(f"Failed to fetch stock info for {ticker}: {e}", type(e).__name__, "HE_portfilio_master_table.py", txns[0][6] or 1)
         current_price = Decimal('0')
         category = "Unknown"
         info = {}
@@ -194,14 +165,9 @@ for ticker, txns in grouped.items():
     for date_str, symbol, action, qty, price, platform, created_by in txns:
         try:
             date = datetime.strptime(date_str, "%Y-%m-%d")
-        except Exception:
-            error_message = traceback.format_exc()
-            log_error_to_db(
-                file_name=os.path.basename(__file__),
-                error_description=error_message,
-                created_by=None,
-                env="dev"
-            )
+        except Exception as e:
+            print(f"Invalid date format: {date_str} in {symbol} — {e}")
+            log_error_to_db(f"Invalid date format {date_str} in {symbol}: {e}", type(e).__name__, "HE_portfilio_master_table.py", created_by or 1)
             continue
 
         if action == 'buy':
@@ -254,14 +220,9 @@ for ticker, txns in grouped.items():
         capex = next((cashflow_stmt.loc[row].iloc[0] for row in cashflow_stmt.index if "capital expenditure" in row.lower()), 0)
         fcf = (op_cashflow + capex) if op_cashflow else None
 
-    except Exception:
-        error_message = traceback.format_exc()
-        log_error_to_db(
-            file_name=os.path.basename(__file__),
-            error_description=error_message,
-            created_by=None,
-            env="dev"
-        )
+    except Exception as e:
+        print(f"⚠️ Financial data missing for {ticker}: {e}")
+        log_error_to_db(f"Financial data missing for {ticker}: {e}", type(e).__name__, "HE_portfilio_master_table.py", txns[0][6] or 1)
         net_income = equity = total_revenue = current_assets = current_liabilities = total_debt = None
         inventory = 0
         fcf = None
@@ -312,19 +273,20 @@ for ticker, txns in grouped.items():
         "fcf_yield": fcf_yield,
         "revenue_growth": safe_round(fwd_rev_growth * 100) if isinstance(fwd_rev_growth, (float, int)) else None,
         "earnings_accuracy": safe_round(surprise_pct * 100) if isinstance(surprise_pct, (float, int)) else None,
-        "created_by": txns[0][6] if len(txns) > 0 else None
+        "created_by": created_by
     })
 
-
 # ---------- Create DataFrame and Insert ----------
+
 df = pd.DataFrame(summary_list)
 
 if not df.empty:
     df['position_size'] = (df['total_cost'] / df['total_cost'].sum()).round(2)
 
-    print("\nPortfolio Summary:")
+    print("\n📈 Portfolio Summary:")
     print(tabulate(df, headers="keys", tablefmt="grid"))
 
+    # Fill any missing columns
     required_columns = [
         "ticker", "Category", "quantity", "avg_cost", "position_size", "total_cost", "current_price",
         "unrealized_gain_loss", "realized_gain_loss", "first_buy_age", "avg_age_days", "platform",
@@ -338,6 +300,7 @@ if not df.empty:
         if col not in df.columns:
             df[col] = None
 
+    # Clean any NaNs/inf from float columns
     df = clean_dataframe(df)
 
     try:
@@ -352,7 +315,8 @@ if not df.empty:
                 `50_day_ema`, `100_day_ema`, `200_day_ema`,
                 sp_500_ya, nasdaq_ya, russell_1000_ya,
                 pe_ratio, peg_ratio, roe, net_profit_margin, current_ratio, debt_equity, fcf_yield,
-                revenue_growth, earnings_accuracy, created_by
+                revenue_growth, earnings_accuracy,
+                created_by
             )
             VALUES (
                 %(ticker)s, %(Category)s, %(quantity)s, %(avg_cost)s, %(position_size)s, %(total_cost)s, %(current_price)s,
@@ -361,26 +325,21 @@ if not df.empty:
                 %(50_day_ema)s, %(100_day_ema)s, %(200_day_ema)s,
                 %(sp_500_ya)s, %(nasdaq_ya)s, %(russell_1000_ya)s,
                 %(pe_ratio)s, %(peg_ratio)s, %(roe)s, %(net_profit_margin)s, %(current_ratio)s, %(debt_equity)s, %(fcf_yield)s,
-                %(revenue_growth)s, %(earnings_accuracy)s, %(created_by)s
+                %(revenue_growth)s, %(earnings_accuracy)s,
+                %(created_by)s
             )
         """
 
         cursor.executemany(query, df.to_dict(orient="records"))
         conn.commit()
-        print("\nData inserted into `he_portfolio_master` successfully.")
+        print("\n✅ Data inserted into `he_portfolio_master` successfully.")
 
-    except Exception:
-        error_message = traceback.format_exc()
-        log_error_to_db(
-            file_name=os.path.basename(__file__),
-            error_description=error_message,
-            created_by=None,
-            env="dev"
-        )
+    except mysql.connector.Error as err:
+        error_message = f"MySQL Insertion Error: {err}"
+        print(error_message)
+        log_error_to_db(error_message, type(err).__name__, "HE_portfilio_master_table.py", 1)
     finally:
-        if 'cursor' in locals():
-            cursor.close()
-        if 'conn' in locals() and conn.is_connected():
-            conn.close()
+        cursor.close()
+        conn.close()
 else:
-    print("\nNo valid data available to insert.")
+    print("\n⚠️ No valid data available to insert.")

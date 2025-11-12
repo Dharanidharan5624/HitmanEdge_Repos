@@ -7,27 +7,28 @@ import mysql.connector
 from mysql.connector import Error
 from email.message import EmailMessage
 import smtplib
-import traceback
-import os
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from HE_database_connect import get_connection
-from HE_error_logs import log_error_to_db
+from HE_error_logs import log_error_to_db  # Import error logging function
 
-# === CONFIG ===
 API_KEY = 'd0a8q79r01qnh1rh09v0d0a8q79r01qnh1rh09vg'
 start_date = datetime.today()
+
 end_date = start_date + relativedelta(months=1)
+
+start_date_str = start_date.strftime('%Y-%m-%d')
+end_date_str = end_date.strftime('%Y-%m-%d')
 
 calendar_url = f'https://finnhub.io/api/v1/calendar/earnings?from={start_date}&to={end_date}&token={API_KEY}'
 company_cache = {}
+
 EXCLUDE_KEYWORDS = ["fund", "trust", "etf", "reit", "insurance", "life", "portfolio"]
 
 sender_email = "ila@shravtek.com"
-receiver_email = "dharanidharan@shravtek.com"
+receiver_email = "dharanidharan@shravtek.com,dinesh@shravtek.com,kgaba.dataservices@gmail.com,sujit@shravtek.com ,avinashgabadatasharing@gmail.com,shreeram@shravtek.com"
 subject = "Earnings Calendar Report"
 app_password = "evte bupb ivnq hsyh"
-
 
 def convert_hour(hour_code):
     if not hour_code:
@@ -39,11 +40,9 @@ def convert_hour(hour_code):
         'dmt': 'During Market Trading'
     }.get(hour_code, 'NULL')
 
-
 def get_company_name(symbol):
     if symbol in company_cache:
         return company_cache[symbol]
-
     profile_url = f'https://finnhub.io/api/v1/stock/profile2?symbol={symbol}&token={API_KEY}'
     while True:
         try:
@@ -58,18 +57,15 @@ def get_company_name(symbol):
                 time.sleep(60)
                 continue
             else:
-                print(f"Failed to fetch profile for {symbol}: {response.status_code}")
+                error_message = f"Failed to fetch profile for {symbol}: Status code {response.status_code}"
+                print(error_message)
+                log_error_to_db(error_message, "HTTPError", "HE_upcoming_earning_report.py", 1)
                 return 'N/A'
-        except Exception:
-            error_message = traceback.format_exc()
-            log_error_to_db(
-                file_name=os.path.basename(__file__),
-                error_description=error_message,
-                created_by=None,
-                env="dev"
-            )
+        except Exception as e:
+            error_message = f"Exception fetching profile for {symbol}: {e}"
+            print(error_message)
+            log_error_to_db(error_message, type(e).__name__, "HE_upcoming_earning_report.py", 1)
             return 'N/A'
-
 
 def get_actual_eps(symbol, earnings_date):
     earnings_url = f'https://finnhub.io/api/v1/stock/earnings?symbol={symbol}&token={API_KEY}'
@@ -86,18 +82,15 @@ def get_actual_eps(symbol, earnings_date):
                 time.sleep(60)
                 continue
             else:
-                print(f"Failed to fetch EPS for {symbol}: {response.status_code}")
+                error_message = f"Failed to fetch actual EPS for {symbol}: Status code {response.status_code}"
+                print(error_message)
+                log_error_to_db(error_message, "HTTPError", "HE_upcoming_earning_report.py", 1)
                 return None
-        except Exception:
-            error_message = traceback.format_exc()
-            log_error_to_db(
-                file_name=os.path.basename(__file__),
-                error_description=error_message,
-                created_by=None,
-                env="dev"
-            )
+        except Exception as e:
+            error_message = f"Error fetching actual EPS for {symbol}: {e}"
+            print(error_message)
+            log_error_to_db(error_message, type(e).__name__, "HE_upcoming_earning_report.py", 1)
             return None
-
 
 def get_last_year_eps(symbol, current_date):
     earnings_url = f'https://finnhub.io/api/v1/stock/earnings?symbol={symbol}&token={API_KEY}'
@@ -115,64 +108,51 @@ def get_last_year_eps(symbol, current_date):
                 time.sleep(60)
                 continue
             else:
-                print(f"Failed to fetch last year EPS for {symbol}: {response.status_code}")
+                error_message = f"Failed to fetch last year EPS for {symbol}: Status code {response.status_code}"
+                print(error_message)
+                log_error_to_db(error_message, "HTTPError", "HE_upcoming_earning_report.py", 1)
                 return None
-        except Exception:
-            error_message = traceback.format_exc()
-            log_error_to_db(
-                file_name=os.path.basename(__file__),
-                error_description=error_message,
-                created_by=None,
-                env="dev"
-            )
+        except Exception as e:
+            error_message = f"Error fetching last year EPS for {symbol}: {e}"
+            print(error_message)
+            log_error_to_db(error_message, type(e).__name__, "HE_upcoming_earning_report.py", 1)
             return None
-
 
 def create_mysql_connection():
     try:
-        conn = get_connection()
-        print("✅ Connected to MySQL database")
-        return conn
-    except Exception:
-        error_message = traceback.format_exc()
-        log_error_to_db(
-            file_name=os.path.basename(__file__),
-            error_description=error_message,
-            created_by=None,
-            env="dev"
-        )
+        connection = get_connection()
+        if connection.is_connected():
+            print("✅ Connected to MySQL database")
+            return connection
+    except Error as e:
+        error_message = f"Error connecting to MySQL: {e}"
+        print(error_message)
+        log_error_to_db(error_message, type(e).__name__, "HE_upcoming_earning_report.py", 1)
         return None
-
 
 def format_market_cap(value):
     if value is None:
         return 'NULL'
     try:
         return f"${value / 1e9:.2f}B"
-    except Exception:
-        error_message = traceback.format_exc()
-        log_error_to_db(
-            file_name=os.path.basename(__file__),
-            error_description=error_message,
-            created_by=None,
-            env="dev"
-        )
+    except Exception as e:
+        error_message = f"Error formatting market cap: {e}"
+        print(error_message)
+        log_error_to_db(error_message, type(e).__name__, "HE_upcoming_earning_report.py", 1)
         return 'NULL'
-
 
 def main():
     try:
-        response = requests.get(calendar_url, timeout=15)
-        response.raise_for_status()
-    except Exception:
-        error_message = traceback.format_exc()
-        log_error_to_db(
-            file_name=os.path.basename(__file__),
-            error_description=error_message,
-            created_by=None,
-            env="dev"
-        )
-        print("[ERROR] Failed to fetch earnings calendar.")
+        response = requests.get(calendar_url)
+        if response.status_code != 200:
+            error_message = f"Error fetching earnings calendar: Status code {response.status_code}, {response.text}"
+            print(error_message)
+            log_error_to_db(error_message, "HTTPError", "HE_upcoming_earning_report.py", 1)
+            return
+    except Exception as e:
+        error_message = f"Error fetching earnings calendar: {e}"
+        print(error_message)
+        log_error_to_db(error_message, type(e).__name__, "HE_upcoming_earning_report.py", 1)
         return
 
     earnings = response.json().get('earningsCalendar', [])
@@ -181,140 +161,153 @@ def main():
         return
 
     results = []
+    total = len(earnings)
 
-    for e in earnings:
-        symbol = e.get('symbol')
-        if not symbol:
+    for i, e in enumerate(earnings, 1):
+        symbol = e.get('symbol', 'N/A')
+        if symbol == 'N/A':
             continue
 
         try:
             ticker = yf.Ticker(symbol)
             info = ticker.info
             market_cap = info.get("marketCap", 0)
-            if not market_cap or market_cap < 1_000_000_000:
+            if market_cap is None or market_cap < 1_000_000_000:
+                print(f"⏩ Skipping {symbol}: Market cap < $1B")
                 continue
+           
             formatted_cap = format_market_cap(market_cap)
-        except Exception:
-            error_message = traceback.format_exc()
-            log_error_to_db(
-                file_name=os.path.basename(__file__),
-                error_description=error_message,
-                created_by=None,
-                env="dev"
-            )
+        except Exception as ex:
+            error_message = f"Error fetching market cap for {symbol}: {ex}"
+            print(error_message)
+            log_error_to_db(error_message, type(ex).__name__, "HE_upcoming_earning_report.py", 1)
             continue
 
-        earnings_date = e.get('date')
-        eps_estimate = e.get('epsEstimate')
-        time_str = convert_hour(e.get('hour'))
+        earnings_date = e.get('date', None)
+        eps_estimate = e.get('epsEstimate', None)
+        time_str = convert_hour(e.get('hour', 'N/A'))
         company_name = get_company_name(symbol)
 
         if any(keyword in company_name.lower() for keyword in EXCLUDE_KEYWORDS):
+            print(f"⏩ Skipping {symbol} - {company_name} (excluded by keyword)")
             continue
 
-        actual_eps = get_actual_eps(symbol, earnings_date)
-        last_year_eps = get_last_year_eps(symbol, earnings_date)
+        actual_eps = get_actual_eps(symbol, earnings_date) if earnings_date else None
+        last_year_eps = get_last_year_eps(symbol, earnings_date) if earnings_date else None
 
         try:
             hist = ticker.history(period='1mo')
             current_price = hist['Close'].iloc[-1] if not hist.empty else None
             volatility = hist['Close'].pct_change().std() * (252**0.5) if not hist.empty else None
-        except Exception:
-            error_message = traceback.format_exc()
-            log_error_to_db(
-                file_name=os.path.basename(__file__),
-                error_description=error_message,
-                created_by=None,
-                env="dev"
-            )
+        except Exception as ex:
+            error_message = f"Error fetching price/volatility for {symbol}: {ex}"
+            print(error_message)
+            log_error_to_db(error_message, type(ex).__name__, "HE_upcoming_earning_report.py", 1)
             current_price = None
             volatility = None
 
         results.append({
-            "Company Name": company_name,
-            "Ticker Symbol": symbol,
-            "Earnings Date": earnings_date,
-            "Time": time_str,
-            "EPS Estimate": eps_estimate,
-            "Actual EPS": actual_eps,
-            "Last Year EPS": last_year_eps,
+            "Company Name": company_name or "NULL",
+            "Ticker Symbol": symbol or "NULL",
+            "Earnings Date": earnings_date or "NULL",
+            "Time": time_str or "NULL",
+            "EPS Estimate": eps_estimate if eps_estimate is not None else "NULL",
+            "Actual EPS": actual_eps if actual_eps is not None else "NULL",
+            "Last Year EPS": last_year_eps if last_year_eps is not None else "NULL",
             "Market Cap": formatted_cap,
-            "Current Price": f"${current_price:.2f}" if current_price else "NULL",
-            "Volatility": f"{volatility:.2%}" if volatility else "NULL"
+            "Current Price" : f"${current_price:.2f}" if current_price else "NULL",
+            "Volatility": f"{volatility:.2%}" if isinstance(volatility, float) else "NULL"
         })
 
+        print(f"✅ Processed {i}/{total} - {symbol} | Market Cap: {formatted_cap}")
+        time.sleep(0.2)
+
     if not results:
-        print("No qualifying earnings found.")
+        print("ℹ️ No records to insert or email.")
         return
 
     df = pd.DataFrame(results)
     print(tabulate(df, headers='keys', tablefmt='pretty', showindex=False))
 
-    # === Store to DB ===
     conn = create_mysql_connection()
     if conn:
         try:
-            cursor = conn.cursor()
             insert_sql = '''
-                INSERT INTO he_upcoming_earning_report (
-                    company_name, ticker_symbol, earnings_date, time, eps_estimate,
-                    actual_eps, last_year_eps, market_cap, current_price, volatility
-                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            INSERT INTO he_upcoming_earning_report (
+                company_name, ticker_symbol, earnings_date, time, eps_estimate,
+                actual_eps, market_cap, current_price, volatility
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             '''
+            cursor = conn.cursor()
             values = [
-                (r["Company Name"], r["Ticker Symbol"], r["Earnings Date"], r["Time"],
-                 r["EPS Estimate"], r["Actual EPS"], r["Last Year EPS"], r["Market Cap"],
-                 r["Current Price"], r["Volatility"])
-                for r in results
+                (row["Company Name"], row["Ticker Symbol"], row["Earnings Date"], row["Time"],
+                 row["EPS Estimate"], row["Actual EPS"], row["Market Cap"],
+                 row["Current Price"], row["Volatility"])
+                for row in results
             ]
             cursor.executemany(insert_sql, values)
             conn.commit()
             print(f"✅ {cursor.rowcount} records inserted into MySQL.")
-        except Exception:
-            error_message = traceback.format_exc()
-            log_error_to_db(
-                file_name=os.path.basename(__file__),
-                error_description=error_message,
-                created_by=None,
-                env="dev"
-            )
+        except Exception as e:
+            error_message = f"Insert failed (check schema): {e}"
+            print(error_message)
+            log_error_to_db(error_message, type(e).__name__, "HE_upcoming_earning_report.py", 1)
         finally:
             conn.close()
 
-    # === Send Email ===
     try:
-        html_body = "<html><body><h2>Earnings Calendar Report</h2><table border='1'>"
-        html_body += "".join([
-            f"<tr><td>{r['Company Name']}</td><td>{r['Ticker Symbol']}</td><td>{r['Earnings Date']}</td>"
-            f"<td>{r['Time']}</td><td>{r['EPS Estimate']}</td><td>{r['Actual EPS']}</td>"
-            f"<td>{r['Last Year EPS']}</td><td>{r['Market Cap']}</td>"
-            f"<td>{r['Current Price']}</td><td>{r['Volatility']}</td></tr>"
-            for r in results
-        ])
+        html_body = """
+        <html>
+        <head>
+          <style>
+            table { border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; }
+            th, td { border: 1px solid #ccc; padding: 8px; text-align: left; color: #000; }
+            th { background-color: #f2f2f2; }
+            h2 { color: #000; }
+          </style>
+        </head>
+        <body>
+          <h2>Earnings Calendar Report</h2>
+          <table>
+            <tr>
+              <th>Company Name</th><th>Ticker</th><th>Date</th><th>Time</th>
+              <th>Est. EPS</th><th>Actual EPS</th><th>Last Yr EPS</th>
+              <th>Market Cap</th><th>Price</th><th>Volatility</th>
+            </tr>
+        """
+        for row in results:
+            html_body += f"""
+            <tr>
+              <td>{row['Company Name']}</td>
+              <td>{row['Ticker Symbol']}</td>
+              <td>{row['Earnings Date']}</td>
+              <td>{row['Time']}</td>
+              <td>{row['EPS Estimate']}</td>
+              <td>{row['Actual EPS']}</td>
+              <td>{row['Last Year EPS']}</td>
+              <td>{row['Market Cap']}</td>
+              <td>{row['Current Price']}</td>
+              <td>{row['Volatility']}</td>
+            </tr>
+            """
+
         html_body += "</table></body></html>"
 
         msg = EmailMessage()
         msg["From"] = sender_email
         msg["To"] = receiver_email
         msg["Subject"] = subject
-        msg.set_content("This is an HTML email report.")
+        msg.set_content("This is an HTML email. Please open in an HTML-compatible viewer.")
         msg.add_alternative(html_body, subtype='html')
 
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
             smtp.login(sender_email, app_password)
             smtp.send_message(msg)
         print("✅ Email sent successfully!")
-
-    except Exception:
-        error_message = traceback.format_exc()
-        log_error_to_db(
-            file_name=os.path.basename(__file__),
-            error_description=error_message,
-            created_by=None,
-            env="dev"
-        )
-        print("[ERROR] Email sending failed.")
-
+    except Exception as e:
+        error_message = f"Email sending failed: {e}"
+        print(error_message)
+        log_error_to_db(error_message, type(e).__name__, "HE_upcoming_earning_report.py", 1)
 
 if __name__ == "__main__":
     main()

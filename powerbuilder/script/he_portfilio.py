@@ -4,13 +4,6 @@ from datetime import datetime
 from decimal import Decimal, InvalidOperation
 import yfinance as yf
 from tabulate import tabulate
-import traceback
-import os
-import sys
-
-# Ensure local modules can be imported
-sys.path.append(os.path.abspath(os.path.dirname(__file__)))
-
 from HE_database_connect import get_connection
 from HE_error_logs import log_error_to_db
 
@@ -50,14 +43,8 @@ def process_fifo(transactions):
         try:
             quantity = Decimal(t['quantity'])
             price = Decimal(t['price'])
-        except Exception:
-            error_message = traceback.format_exc()
-            log_error_to_db(
-                file_name=os.path.basename(__file__),
-                error_description=error_message,
-                created_by=None,
-                env="dev"
-            )
+        except InvalidOperation:
+            log_error_to_db("HE_portfilio.py", f"Invalid transaction skipped: {t}")
             continue
 
         trade_type = t['trade_type'].lower()
@@ -100,14 +87,8 @@ def fetch_all_user_ids():
         cursor.close()
         conn.close()
         return user_ids
-    except Exception:
-        error_message = traceback.format_exc()
-        log_error_to_db(
-            file_name=os.path.basename(__file__),
-            error_description=error_message,
-            created_by=None,
-            env="dev"
-        )
+    except Exception as err:
+        log_error_to_db("HE_portfilio.py", str(err))
         return []
 
 def fetch_fifo_data(created_by):
@@ -124,14 +105,8 @@ def fetch_fifo_data(created_by):
         cursor.close()
         conn.close()
         return rows
-    except Exception:
-        error_message = traceback.format_exc()
-        log_error_to_db(
-            file_name=os.path.basename(__file__),
-            error_description=error_message,
-            created_by=None,
-            env="dev"
-        )
+    except Exception as err:
+        log_error_to_db("HE_Portfolio.py", str(err))
         return []
 
 # ------------------ Market Index Data ------------------
@@ -140,14 +115,8 @@ def get_index_close(ticker_symbol):
         index = yf.Ticker(ticker_symbol)
         hist = index.history(period="1y", interval="1d", auto_adjust=True)
         return hist['Close'].iloc[-1] if not hist.empty else None
-    except Exception:
-        error_message = traceback.format_exc()
-        log_error_to_db(
-            file_name=os.path.basename(__file__),
-            error_description=error_message,
-            created_by=None,
-            env="dev"
-        )
+    except Exception as e:
+        log_error_to_db("HE_Portfolio.py", f"{ticker_symbol}: {e}")
         return None
 
 # ------------------ Summary Builder ------------------
@@ -226,14 +195,8 @@ def build_summary(rows):
 
             summary_list.append(summary)
 
-        except Exception:
-            error_message = traceback.format_exc()
-            log_error_to_db(
-                file_name=os.path.basename(__file__),
-                error_description=error_message,
-                created_by=created_by,
-                env="dev"
-            )
+        except Exception as e:
+            log_error_to_db("HE_Portfolio.py", f"{ticker}: {e}")
 
     return pd.DataFrame(summary_list)
 
@@ -251,7 +214,7 @@ def insert_summary_to_db(df):
                     platform, industry_pe, current_pe, price_sales_ratio, price_book_ratio,
                     50_day_ema, 100_day_ema, 200_day_ema, sp_500_ya, nasdaq_ya, russell_1000_ya,
                     created_by, pe_ratio, peg_ratio, roe, net_profit_margin, current_ratio,
-                   ">{{$debt_equity}}, fcf_yield, revenue_growth, earnings_accuracy, category
+                    debt_equity, fcf_yield, revenue_growth, earnings_accuracy, category
                 ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                           %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON DUPLICATE KEY UPDATE
@@ -289,51 +252,59 @@ def insert_summary_to_db(df):
             cursor.execute(sql, tuple(row))
 
         conn.commit()
-        print("Portfolio summary inserted/updated without duplicates.")
-    except Exception:
-        error_message = traceback.format_exc()
-        log_error_to_db(
-            file_name=os.path.basename(__file__),
-            error_description=error_message,
-            created_by=None,
-            env="dev"
-        )
-    finally:
-        if 'cursor' in locals():
-            cursor.close()
-        if 'conn' in locals() and conn.is_connected():
-            conn.close()
+        cursor.close()
+        conn.close()
+        print("✅ Portfolio summary inserted/updated without duplicates.")
+    except Exception as err:
+        log_error_to_db("HE_Portfolio.py", str(err))
 
+
+# # ------------------ Main ------------------
+# def main():
+#     user_ids = fetch_all_user_ids()
+#     if not user_ids:
+#         print("❌ No users found.")
+#         return
+
+#     for user_id in user_ids:
+#         print(f"\n📥 Processing user: {user_id}")
+#         rows = fetch_fifo_data(user_id)
+
+#         if not rows:
+#             print(f"⚠️ No transactions for user {user_id}")
+#             continue
+
+#         df = build_summary(rows)
+#         if not df.empty:
+#             print(tabulate(df, headers='keys', tablefmt='fancy_grid', showindex=False))
+#             insert_summary_to_db(df)
+#         else:
+#             print(f"⚠️ No data to insert for user {user_id}")
+
+# if __name__ == "__main__":
+#     main()
 # ------------------ Main ------------------
+import sys
+
 def main():
-    try:
-        if len(sys.argv) < 2:
-            print("Usage: python HE_portfolio.py <user_id>")
-            return
-            
-        user_id = sys.argv[1]
-        print(f"\nProcessing user: {user_id}")
+    if len(sys.argv) < 2:
+        print("Usage: python HE_portfolio.py <user_id>")
+        return
+        
+    user_id = sys.argv[1]
+    print(f"\n📥 Processing user: {user_id}")
 
-        rows = fetch_fifo_data(user_id)
-        if not rows:
-            print(f"No transactions for user {user_id}")
-            return
+    rows = fetch_fifo_data(user_id)
+    if not rows:
+        print(f"⚠️ No transactions for user {user_id}")
+        return
 
-        df = build_summary(rows)
-        if not df.empty:
-            print(tabulate(df, headers='keys', tablefmt='fancy_grid', showindex=False))
-            insert_summary_to_db(df)
-        else:
-            print(f"No data to insert for user {user_id}")
-
-    except Exception:
-        error_message = traceback.format_exc()
-        log_error_to_db(
-            file_name=os.path.basename(__file__),
-            error_description=error_message,
-            created_by=None,
-            env="dev"
-        )
+    df = build_summary(rows)
+    if not df.empty:
+        print(tabulate(df, headers='keys', tablefmt='fancy_grid', showindex=False))
+        insert_summary_to_db(df)
+    else:
+        print(f"⚠️ No data to insert for user {user_id}")
 
 if __name__ == "__main__":
     main()
