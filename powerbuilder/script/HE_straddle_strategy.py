@@ -5,9 +5,14 @@ import time
 import mysql.connector
 import numpy as np
 from ib_insync import IB, Stock, MarketOrder
+<<<<<<< HEAD:powerbuilder/script/HE_straddle_strategy.py
 import traceback
 import os
 import sys
+=======
+from HE_database_connect import get_connection
+from HE_error_logs import log_error_to_db  
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Straddle_Strategy.py
 
 # Ensure local modules can be imported
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
@@ -34,6 +39,7 @@ def connect_ibkr():
             return True
         except Exception:
             retry += 1
+<<<<<<< HEAD:powerbuilder/script/HE_straddle_strategy.py
             error_message = traceback.format_exc()
             log_error_to_db(
                 file_name=os.path.basename(__file__),
@@ -42,6 +48,10 @@ def connect_ibkr():
                 env="dev"
             )
             print(f"Connection attempt {retry} failed.")
+=======
+            log_error_to_db("HE_straddle_strategy.py", str(e), created_by="connect_ibkr")
+            print(f"Connection attempt {retry} failed: {e}")
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Straddle_Strategy.py
             time.sleep(5)
     print("Failed to connect to IB API after retries.")
     return False
@@ -62,6 +72,7 @@ def store_data_in_db(data):
         cursor.executemany(sql, converted_data)
         conn.commit()
         print("Options data stored successfully.")
+<<<<<<< HEAD:powerbuilder/script/HE_straddle_strategy.py
     except Exception:
         error_message = traceback.format_exc()
         log_error_to_db(
@@ -75,6 +86,12 @@ def store_data_in_db(data):
             cursor.close()
         if 'conn' in locals() and conn.is_connected():
             conn.close()
+=======
+    except mysql.connector.Error as err:
+        print(f"MySQL Error: {err}")
+        log_error_to_db("HE_straddle_strategy.py", str(err), created_by="store_data_in_db")
+
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Straddle_Strategy.py
 
 def analyze_trend_and_signal(prices, symbol, timestamps):
     directions = ["Up" if prices[i + 1] > prices[i] else "Down" for i in range(len(prices) - 1)]
@@ -103,6 +120,7 @@ def save_trade_to_db(activity_date, process_date, settle_date, instrument, descr
         cursor.execute(query, values)
         conn.commit()
         print("Trade saved to DB.")
+<<<<<<< HEAD:powerbuilder/script/HE_straddle_strategy.py
     except Exception:
         error_message = traceback.format_exc()
         log_error_to_db(
@@ -116,6 +134,11 @@ def save_trade_to_db(activity_date, process_date, settle_date, instrument, descr
             cursor.close()
         if 'conn' in locals() and conn.is_connected():
             conn.close()
+=======
+    except mysql.connector.Error as err:
+        print("MySQL Insert Error:", err)
+        log_error_to_db("HE_straddle_strategy.py", str(err), created_by="save_trade_to_db")
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Straddle_Strategy.py
 
 def get_stock_holding(symbol):
     try:
@@ -125,6 +148,7 @@ def get_stock_holding(symbol):
         rows = cursor.fetchall()
         total_qty = sum(qty for tran_code, qty in rows if tran_code.upper() == 'BUY')
         return total_qty
+<<<<<<< HEAD:powerbuilder/script/HE_straddle_strategy.py
     except Exception:
         error_message = traceback.format_exc()
         log_error_to_db(
@@ -133,6 +157,11 @@ def get_stock_holding(symbol):
             created_by=None,
             env="dev"
         )
+=======
+    except mysql.connector.Error as err:
+        print("MySQL Select Error:", err)
+        log_error_to_db("HE_straddle_strategy.py", str(err), created_by="get_stock_holding")
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Straddle_Strategy.py
         return 0
     finally:
         if 'cursor' in locals():
@@ -156,6 +185,7 @@ def place_ibkr_trade(symbol, description, signal, qty):
             save_trade_to_db(activity_date, activity_date, activity_date, symbol, description, signal, qty, price, amount)
         else:
             print("Order not filled.")
+<<<<<<< HEAD:powerbuilder/script/HE_straddle_strategy.py
     except Exception:
         error_message = traceback.format_exc()
         log_error_to_db(
@@ -164,6 +194,11 @@ def place_ibkr_trade(symbol, description, signal, qty):
             created_by=None,
             env="dev"
         )
+=======
+    except Exception as e:
+        print(f"Trade error: {e}")
+        log_error_to_db("HE_straddle_strategy.py", str(e), created_by="place_ibkr_trade")
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Straddle_Strategy.py
 
 def check_and_trade(symbol, qty):
     try:
@@ -173,6 +208,7 @@ def check_and_trade(symbol, qty):
             place_ibkr_trade(symbol, symbol, "BUY", qty)
         else:
             print(f"Already holding {holding} shares of {symbol}. Skipping buy.")
+<<<<<<< HEAD:powerbuilder/script/HE_straddle_strategy.py
     except Exception:
         error_message = traceback.format_exc()
         log_error_to_db(
@@ -181,6 +217,11 @@ def check_and_trade(symbol, qty):
             created_by=None,
             env="dev"
         )
+=======
+    except Exception as e:
+        log_error_to_db("HE_straddle_strategy.py", str(e), created_by="check_and_trade")
+
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Straddle_Strategy.py
 
 def show_all_data_and_trade_ibkr():
     try:
@@ -205,6 +246,7 @@ def show_all_data_and_trade_ibkr():
             signal = analyze_trend_and_signal(prices, sym, timestamps)
             if signal == "BUY":
                 check_and_trade(sym, 10)
+<<<<<<< HEAD:powerbuilder/script/HE_straddle_strategy.py
     except Exception:
         error_message = traceback.format_exc()
         log_error_to_db(
@@ -218,6 +260,14 @@ def show_all_data_and_trade_ibkr():
             cursor.close()
         if 'conn' in locals() and conn.is_connected():
             conn.close()
+=======
+        cursor.close()
+        conn.close()
+    except mysql.connector.Error as err:
+        print("MySQL Error:", err)
+        log_error_to_db("HE_straddle_strategy.py", str(err), created_by="show_all_data_and_trade_ibkr")
+
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Straddle_Strategy.py
 
 # ------------------ MAIN LOOP ------------------
 try:

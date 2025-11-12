@@ -12,6 +12,11 @@ sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 from HE_database_connect import get_connection
 from HE_error_logs import log_error_to_db
 
+<<<<<<< HEAD:powerbuilder/script/HE_options_trading_pull_metrics.py
+=======
+from HE_database_connect import get_connection
+from HE_error_logs import log_error_to_db 
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Options_Trading_Pull_Metrics.py
 
 def get_stock_data(symbol: str):
     try:
@@ -21,6 +26,7 @@ def get_stock_data(symbol: str):
             raise ValueError(f"No stock data available for {symbol}.")
         return df
     except Exception:
+<<<<<<< HEAD:powerbuilder/script/HE_options_trading_pull_metrics.py
         error_message = traceback.format_exc()
         log_error_to_db(
             file_name=os.path.basename(__file__),
@@ -28,6 +34,9 @@ def get_stock_data(symbol: str):
             created_by=None,
             env="dev"
         )
+=======
+        log_error_to_db("HE_options_trading_pull_metrics.py", traceback.format_exc(), created_by="data_fetch")
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Options_Trading_Pull_Metrics.py
         return None
 
 
@@ -39,6 +48,7 @@ def calculate_macd(df):
         df["Signal"] = df["MACD"].ewm(span=9, adjust=False).mean()
         return round(df["MACD"].iloc[-1], 2), round(df["Signal"].iloc[-1], 2)
     except Exception:
+<<<<<<< HEAD:powerbuilder/script/HE_options_trading_pull_metrics.py
         error_message = traceback.format_exc()
         log_error_to_db(
             file_name=os.path.basename(__file__),
@@ -46,6 +56,9 @@ def calculate_macd(df):
             created_by=None,
             env="dev"
         )
+=======
+        log_error_to_db("HE_options_trading_pull_metrics.py", traceback.format_exc(), created_by="macd_calc")
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Options_Trading_Pull_Metrics.py
         return 0, 0
 
 
@@ -57,6 +70,7 @@ def calculate_bollinger_bands(df, period=20):
         df["Lower Band"] = df["SMA"] - (2 * df["STD"])
         return round(df["Upper Band"].iloc[-1], 2), round(df["Lower Band"].iloc[-1], 2)
     except Exception:
+<<<<<<< HEAD:powerbuilder/script/HE_options_trading_pull_metrics.py
         error_message = traceback.format_exc()
         log_error_to_db(
             file_name=os.path.basename(__file__),
@@ -64,6 +78,9 @@ def calculate_bollinger_bands(df, period=20):
             created_by=None,
             env="dev"
         )
+=======
+        log_error_to_db("HE_options_trading_pull_metrics.py", traceback.format_exc(), created_by="bollinger_calc")
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Options_Trading_Pull_Metrics.py
         return 0, 0
 
 
@@ -71,6 +88,7 @@ def calculate_sma(df, period=20):
     try:
         return round(df["Close"].rolling(window=period).mean().iloc[-1], 2)
     except Exception:
+<<<<<<< HEAD:powerbuilder/script/HE_options_trading_pull_metrics.py
         error_message = traceback.format_exc()
         log_error_to_db(
             file_name=os.path.basename(__file__),
@@ -78,6 +96,9 @@ def calculate_sma(df, period=20):
             created_by=None,
             env="dev"
         )
+=======
+        log_error_to_db("HE_options_trading_pull_metrics.py", traceback.format_exc(), created_by="sma_calc")
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Options_Trading_Pull_Metrics.py
         return 0
 
 
@@ -85,6 +106,7 @@ def calculate_ema(df, period=20):
     try:
         return round(df["Close"].ewm(span=period, adjust=False).mean().iloc[-1], 2)
     except Exception:
+<<<<<<< HEAD:powerbuilder/script/HE_options_trading_pull_metrics.py
         error_message = traceback.format_exc()
         log_error_to_db(
             file_name=os.path.basename(__file__),
@@ -92,6 +114,9 @@ def calculate_ema(df, period=20):
             created_by=None,
             env="dev"
         )
+=======
+        log_error_to_db("HE_options_trading_pull_metrics.py", traceback.format_exc(), created_by="ema_calc")
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Options_Trading_Pull_Metrics.py
         return 0
 
 
@@ -108,6 +133,7 @@ def calculate_fibonacci_levels(df):
             "Fib 78.6%": round(recent_high - 0.786 * diff, 2),
         }
     except Exception:
+<<<<<<< HEAD:powerbuilder/script/HE_options_trading_pull_metrics.py
         error_message = traceback.format_exc()
         log_error_to_db(
             file_name=os.path.basename(__file__),
@@ -115,6 +141,9 @@ def calculate_fibonacci_levels(df):
             created_by=None,
             env="dev"
         )
+=======
+        log_error_to_db("HE_options_trading_pull_metrics.py", traceback.format_exc(), created_by="fibonacci_calc")
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Options_Trading_Pull_Metrics.py
         return {k: 0 for k in ["Fib 23.6%", "Fib 38.2%", "Fib 50.0%", "Fib 61.8%", "Fib 78.6%"]}
 
 
@@ -127,6 +156,7 @@ def calculate_atr(df, period=14):
         df["ATR"] = df["TR"].rolling(window=period).mean()
         return round(df["ATR"].iloc[-1], 2)
     except Exception:
+<<<<<<< HEAD:powerbuilder/script/HE_options_trading_pull_metrics.py
         error_message = traceback.format_exc()
         log_error_to_db(
             file_name=os.path.basename(__file__),
@@ -134,6 +164,9 @@ def calculate_atr(df, period=14):
             created_by=None,
             env="dev"
         )
+=======
+        log_error_to_db("HE_options_trading_pull_metrics.py", traceback.format_exc(), created_by="atr_calc")
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Options_Trading_Pull_Metrics.py
         return 0
 
 
@@ -145,6 +178,7 @@ def calculate_stochastic(df, k_period=14, d_period=3):
         df["%D"] = df["%K"].rolling(window=d_period).mean()
         return round(df["%K"].iloc[-1], 2), round(df["%D"].iloc[-1], 2)
     except Exception:
+<<<<<<< HEAD:powerbuilder/script/HE_options_trading_pull_metrics.py
         error_message = traceback.format_exc()
         log_error_to_db(
             file_name=os.path.basename(__file__),
@@ -152,6 +186,9 @@ def calculate_stochastic(df, k_period=14, d_period=3):
             created_by=None,
             env="dev"
         )
+=======
+        log_error_to_db("HE_options_trading_pull_metrics.py", traceback.format_exc(), created_by="stochastic_calc")
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Options_Trading_Pull_Metrics.py
         return 0, 0
 
 
@@ -166,6 +203,7 @@ def calculate_rsi(df, period=14):
         rsi = 100 - (100 / (1 + rs))
         return round(rsi.iloc[-1], 2)
     except Exception:
+<<<<<<< HEAD:powerbuilder/script/HE_options_trading_pull_metrics.py
         error_message = traceback.format_exc()
         log_error_to_db(
             file_name=os.path.basename(__file__),
@@ -173,6 +211,9 @@ def calculate_rsi(df, period=14):
             created_by=None,
             env="dev"
         )
+=======
+        log_error_to_db("HE_options_trading_pull_metrics.py", traceback.format_exc(), created_by="rsi_calc")
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Options_Trading_Pull_Metrics.py
         return 0
 
 
@@ -180,7 +221,10 @@ def store_data_in_db(data):
     try:
         conn = get_connection()
         cursor = conn.cursor()
+<<<<<<< HEAD:powerbuilder/script/HE_options_trading_pull_metrics.py
 
+=======
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Options_Trading_Pull_Metrics.py
         sql = """INSERT INTO he_stocks (symbol, latest_price, macd, signal_macd, boll_upper, boll_lower,
                                             atr, volume, stoch_k, stoch_d, sma, ema,
                                             fib_23_6, fib_38_2, fib_50, fib_61, fib_78_6, rsi)
@@ -206,6 +250,7 @@ def store_data_in_db(data):
         cursor.close()
         conn.close()
         print(" Data stored successfully!")
+<<<<<<< HEAD:powerbuilder/script/HE_options_trading_pull_metrics.py
     except mysql.connector.Error as err:
         error_message = traceback.format_exc()
         log_error_to_db(
@@ -214,6 +259,10 @@ def store_data_in_db(data):
             created_by=None,
             env="dev"
         )
+=======
+    except Exception:
+        log_error_to_db("HE_options_trading_pull_metrics.py", traceback.format_exc(), created_by="db_store")
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Options_Trading_Pull_Metrics.py
         print(" Database Error - Logged")
 
 
@@ -243,6 +292,7 @@ if __name__ == "__main__":
                     fib_levels["Fib 61.8%"], fib_levels["Fib 78.6%"], rsi
                 ])
             except Exception:
+<<<<<<< HEAD:powerbuilder/script/HE_options_trading_pull_metrics.py
                 error_message = traceback.format_exc()
                 log_error_to_db(
                     file_name=os.path.basename(__file__),
@@ -250,6 +300,9 @@ if __name__ == "__main__":
                     created_by=None,
                     env="dev"
                 )
+=======
+                log_error_to_db("HE_options_trading_pull_metrics.py", traceback.format_exc(), created_by=f"{symbol}_loop")
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Options_Trading_Pull_Metrics.py
 
     headers = [
         "Symbol", "Price", "MACD", "Signal",

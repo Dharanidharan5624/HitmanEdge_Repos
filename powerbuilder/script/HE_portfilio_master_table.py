@@ -5,6 +5,7 @@ from decimal import Decimal, InvalidOperation
 import yfinance as yf
 from tabulate import tabulate
 import math
+<<<<<<< HEAD:powerbuilder/script/HE_portfilio_master_table.py
 import traceback
 import os
 import sys
@@ -15,6 +16,10 @@ sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 from HE_database_connect import get_connection
 from HE_error_logs import log_error_to_db  # Import error logging function
 
+=======
+from HE_database_connect import get_connection
+from HE_error_logs import log_error_to_db  # Import error logging function
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/he_portfilio_master_table.py
 
 def safe_round(val, digits=2):
     try:
@@ -45,6 +50,7 @@ def fetch_fifo_data():
         print(tabulate(rows, headers=["Ticker", "Date", "Type", "Qty", "Price", "Platform", "Created By"], tablefmt="grid"))
         return rows
 
+<<<<<<< HEAD:powerbuilder/script/HE_portfilio_master_table.py
     except Exception:
         error_message = traceback.format_exc()
         log_error_to_db(
@@ -53,6 +59,12 @@ def fetch_fifo_data():
             created_by=None,
             env="dev"
         )
+=======
+    except mysql.connector.Error as err:
+        error_message = f"Database Error in fetch_fifo_data: {err}"
+        print(error_message)
+        log_error_to_db(error_message, type(err).__name__, "HE_portfilio_master_table.py", 1)
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/he_portfilio_master_table.py
         return []
 
 
@@ -66,10 +78,21 @@ def safe_get(df, keys):
 def get_index_return(ticker):
     try:
         hist = yf.Ticker(ticker).history(period="1y")
+<<<<<<< HEAD:powerbuilder/script/HE_portfilio_master_table.py
         if hist.empty or 'Close' not in hist.columns or hist['Close'].isnull().all():
+=======
+        if hist.empty:
+            # No data found for the ticker
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/he_portfilio_master_table.py
             return None
+        
+        # Ensure the 'Close' column exists and has data
+        if 'Close' not in hist.columns or hist['Close'].isnull().all():
+            return None
+        
         start_price = hist['Close'].iloc[0]
         end_price = hist['Close'].iloc[-1]
+<<<<<<< HEAD:powerbuilder/script/HE_portfilio_master_table.py
         if start_price == 0:
             return None
         return round((end_price - start_price) / start_price * 100, 2)
@@ -82,6 +105,22 @@ def get_index_return(ticker):
             created_by=None,
             env="dev"
         )
+=======
+
+        # Avoid division by zero just in case
+        if start_price == 0:
+            return None
+
+        return round((end_price - start_price) / start_price * 100, 2)
+    
+    except Exception as e:
+        error_message = f"Error fetching index return for {ticker}: {e}"
+        print(error_message)
+        
+        # Assuming log_error_to_db is defined elsewhere
+        log_error_to_db(error_message, type(e).__name__, "HE_portfilio_master_table.py", 1)
+        
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/he_portfilio_master_table.py
         return None
 
 
@@ -107,6 +146,7 @@ for t in fetch_fifo_data():
 
     try:
         qty = Decimal(qty) if qty is not None else Decimal('0')
+<<<<<<< HEAD:powerbuilder/script/HE_portfilio_master_table.py
     except (InvalidOperation, TypeError):
         error_message = traceback.format_exc()
         log_error_to_db(
@@ -115,10 +155,16 @@ for t in fetch_fifo_data():
             created_by=None,
             env="dev"
         )
+=======
+    except (InvalidOperation, TypeError) as e:
+        print(f"⚠️ Invalid quantity for row: {t}")
+        log_error_to_db(f"Invalid quantity for row {t}: {e}", type(e).__name__, "HE_portfilio_master_table.py", created_by or 1)
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/he_portfilio_master_table.py
         qty = Decimal('0')
 
     try:
         price = Decimal(price) if price is not None else Decimal('0')
+<<<<<<< HEAD:powerbuilder/script/HE_portfilio_master_table.py
     except (InvalidOperation, TypeError):
         error_message = traceback.format_exc()
         log_error_to_db(
@@ -127,6 +173,11 @@ for t in fetch_fifo_data():
             created_by=None,
             env="dev"
         )
+=======
+    except (InvalidOperation, TypeError) as e:
+        print(f"⚠️ Invalid price for row: {t}")
+        log_error_to_db(f"Invalid price for row {t}: {e}", type(e).__name__, "HE_portfilio_master_table.py", created_by or 1)
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/he_portfilio_master_table.py
         price = Decimal('0')
 
     if not date_obj:
@@ -153,6 +204,7 @@ for ticker, txns in grouped.items():
         stock = yf.Ticker(ticker)
         hist = stock.history(period="260d")
         if hist.empty or 'Close' not in hist:
+<<<<<<< HEAD:powerbuilder/script/HE_portfilio_master_table.py
             print(f"Skipping {ticker} — No valid historical data.")
             log_error_to_db(
                 file_name=os.path.basename(__file__),
@@ -169,6 +221,14 @@ for ticker, txns in grouped.items():
             created_by=None,
             env="dev"
         )
+=======
+            print(f"❌ Skipping {ticker} — No valid historical data.")
+            log_error_to_db(f"No valid historical data for {ticker}", "DataError", "HE_portfilio_master_table.py", txns[0][6] or 1)
+            continue
+    except Exception as e:
+        print(f"❌ Skipping {ticker} — Error fetching history: {e}")
+        log_error_to_db(f"Error fetching history for {ticker}: {e}", type(e).__name__, "HE_portfilio_master_table.py", txns[0][6] or 1)
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/he_portfilio_master_table.py
         continue
 
     ema_50 = safe_round(hist['Close'].ewm(span=50, adjust=False).mean().iloc[-1])
@@ -179,6 +239,7 @@ for ticker, txns in grouped.items():
         info = stock.info
         current_price = Decimal(info.get('currentPrice', 0))
         category = info.get('sector', 'Unknown')
+<<<<<<< HEAD:powerbuilder/script/HE_portfilio_master_table.py
     except Exception:
         error_message = traceback.format_exc()
         log_error_to_db(
@@ -187,6 +248,11 @@ for ticker, txns in grouped.items():
             created_by=None,
             env="dev"
         )
+=======
+    except Exception as e:
+        print(f"⚠️ Failed to fetch info for {ticker}: {e}")
+        log_error_to_db(f"Failed to fetch stock info for {ticker}: {e}", type(e).__name__, "HE_portfilio_master_table.py", txns[0][6] or 1)
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/he_portfilio_master_table.py
         current_price = Decimal('0')
         category = "Unknown"
         info = {}
@@ -194,6 +260,7 @@ for ticker, txns in grouped.items():
     for date_str, symbol, action, qty, price, platform, created_by in txns:
         try:
             date = datetime.strptime(date_str, "%Y-%m-%d")
+<<<<<<< HEAD:powerbuilder/script/HE_portfilio_master_table.py
         except Exception:
             error_message = traceback.format_exc()
             log_error_to_db(
@@ -202,6 +269,11 @@ for ticker, txns in grouped.items():
                 created_by=None,
                 env="dev"
             )
+=======
+        except Exception as e:
+            print(f"Invalid date format: {date_str} in {symbol} — {e}")
+            log_error_to_db(f"Invalid date format {date_str} in {symbol}: {e}", type(e).__name__, "HE_portfilio_master_table.py", created_by or 1)
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/he_portfilio_master_table.py
             continue
 
         if action == 'buy':
@@ -254,6 +326,7 @@ for ticker, txns in grouped.items():
         capex = next((cashflow_stmt.loc[row].iloc[0] for row in cashflow_stmt.index if "capital expenditure" in row.lower()), 0)
         fcf = (op_cashflow + capex) if op_cashflow else None
 
+<<<<<<< HEAD:powerbuilder/script/HE_portfilio_master_table.py
     except Exception:
         error_message = traceback.format_exc()
         log_error_to_db(
@@ -262,6 +335,11 @@ for ticker, txns in grouped.items():
             created_by=None,
             env="dev"
         )
+=======
+    except Exception as e:
+        print(f"⚠️ Financial data missing for {ticker}: {e}")
+        log_error_to_db(f"Financial data missing for {ticker}: {e}", type(e).__name__, "HE_portfilio_master_table.py", txns[0][6] or 1)
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/he_portfilio_master_table.py
         net_income = equity = total_revenue = current_assets = current_liabilities = total_debt = None
         inventory = 0
         fcf = None
@@ -312,7 +390,11 @@ for ticker, txns in grouped.items():
         "fcf_yield": fcf_yield,
         "revenue_growth": safe_round(fwd_rev_growth * 100) if isinstance(fwd_rev_growth, (float, int)) else None,
         "earnings_accuracy": safe_round(surprise_pct * 100) if isinstance(surprise_pct, (float, int)) else None,
+<<<<<<< HEAD:powerbuilder/script/HE_portfilio_master_table.py
         "created_by": txns[0][6] if len(txns) > 0 else None
+=======
+        "created_by": created_by
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/he_portfilio_master_table.py
     })
 
 
@@ -367,6 +449,7 @@ if not df.empty:
 
         cursor.executemany(query, df.to_dict(orient="records"))
         conn.commit()
+<<<<<<< HEAD:powerbuilder/script/HE_portfilio_master_table.py
         print("\nData inserted into `he_portfolio_master` successfully.")
 
     except Exception:
@@ -377,10 +460,22 @@ if not df.empty:
             created_by=None,
             env="dev"
         )
+=======
+        print("\n✅ Data inserted into `he_portfolio_master` successfully.")
+
+    except mysql.connector.Error as err:
+        error_message = f"MySQL Insertion Error: {err}"
+        print(error_message)
+        log_error_to_db(error_message, type(err).__name__, "HE_portfilio_master_table.py", 1)
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/he_portfilio_master_table.py
     finally:
         if 'cursor' in locals():
             cursor.close()
         if 'conn' in locals() and conn.is_connected():
             conn.close()
 else:
+<<<<<<< HEAD:powerbuilder/script/HE_portfilio_master_table.py
     print("\nNo valid data available to insert.")
+=======
+    print("\n⚠️ No valid data available to insert.")
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/he_portfilio_master_table.py

@@ -4,6 +4,7 @@ from scipy.stats import norm
 from datetime import datetime
 import mysql.connector
 import traceback
+<<<<<<< HEAD:powerbuilder/script/HE_greeks.py
 import sys
 import os
 
@@ -11,6 +12,10 @@ import os
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 from HE_error_logs import log_error_to_db
 from HE_database_connect import get_connection
+=======
+from HE_database_connect import get_connection
+from HE_error_logs import log_error_to_db 
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Greeks.py
 
 
 def black_scholes_greeks(S, K, T, r, sigma, option_type='call'):
@@ -42,7 +47,10 @@ def black_scholes_greeks(S, K, T, r, sigma, option_type='call'):
         'Rho (per 1% rate)': rho / 100
     }
 
+<<<<<<< HEAD:powerbuilder/script/HE_greeks.py
 
+=======
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Greeks.py
 user_input = {
     'symbol': 'SPY',
     'expiry_input': '21.5.2026',   # Input format: DD.MM.YYYY
@@ -55,6 +63,7 @@ expiry = datetime.strptime(user_input['expiry_input'], '%d.%m.%Y').date()
 strike_price = user_input['strike_price']
 option_type = user_input['option_type'].lower()
 
+<<<<<<< HEAD:powerbuilder/script/HE_greeks.py
 
 try:
     ticker = yf.Ticker(symbol)
@@ -67,11 +76,20 @@ except Exception:
         created_by=None,
         env="dev"
     )
+=======
+try:
+    ticker = yf.Ticker(symbol)
+    stock_price = ticker.history(period="1d")['Close'].iloc[-1]
+except Exception as e:
+    error_description = traceback.format_exc()
+    log_error_to_db("HE_greeks.py", error_description, created_by="greeks_module")
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Greeks.py
     raise
 
 today = datetime.today().date()
 T = max((expiry - today).days / 365, 1 / 365)
 
+<<<<<<< HEAD:powerbuilder/script/HE_greeks.py
 
 try:
     rfr_data = yf.Ticker("^TNX").history(period="1d")
@@ -88,6 +106,17 @@ except Exception:
 
 
 available_expirations = ticker.options
+=======
+try:
+    rfr_data = yf.Ticker("^TNX").history(period="1d")
+    risk_free_rate = rfr_data["Close"].iloc[-1] / 100
+except Exception as e:
+    error_description = traceback.format_exc()
+    log_error_to_db("HE_greeks.py",  error_description, created_by="greeks_module")
+    risk_free_rate = 0.05  
+
+
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Greeks.py
 expiry_str = expiry.strftime('%Y-%m-%d')
 
 if expiry_str not in available_expirations:
@@ -112,6 +141,7 @@ try:
     else:
         print(f"[WARN] Strike {strike_price} not found. Using fallback IV=20%.")
         implied_volatility = 0.20
+<<<<<<< HEAD:powerbuilder/script/HE_greeks.py
 except Exception:
     error_message = traceback.format_exc()
     log_error_to_db(
@@ -124,6 +154,14 @@ except Exception:
     implied_volatility = 0.20
 
 
+=======
+except Exception as e:
+    error_description = traceback.format_exc()
+    log_error_to_db("HE_greeks.py", error_description, created_by="greeks_module")
+    print(f"Could not fetch option chain: {e}. Using fallback IV=20%.")
+    implied_volatility = 0.20
+
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Greeks.py
 try:
     greeks = black_scholes_greeks(
         S=stock_price,
@@ -133,6 +171,7 @@ try:
         sigma=implied_volatility,
         option_type=option_type
     )
+<<<<<<< HEAD:powerbuilder/script/HE_greeks.py
 except Exception:
     error_message = traceback.format_exc()
     log_error_to_db(
@@ -141,6 +180,11 @@ except Exception:
         created_by=None,
         env="dev"
     )
+=======
+except Exception as e:
+    error_msg = traceback.format_exc()
+    log_error_to_db("HE_greeks.py", error_msg, created_by="greeks_module")
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Greeks.py
     raise
 
 print(f"\nOption Greeks for {symbol}")
@@ -154,6 +198,10 @@ print(f"Risk-Free Rate : {risk_free_rate * 100:.2f}%\n")
 for greek, value in greeks.items():
     print(f"{greek:<20}: {value:.10f}")
 
+<<<<<<< HEAD:powerbuilder/script/HE_greeks.py
+=======
+
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Greeks.py
 try:
     conn = get_connection()
     cursor = conn.cursor()
@@ -188,6 +236,7 @@ try:
     print("\n[INFO] Option Greeks stored in the database successfully.")
 
 except mysql.connector.Error as err:
+<<<<<<< HEAD:powerbuilder/script/HE_greeks.py
     error_message = traceback.format_exc()
     log_error_to_db(
         file_name=os.path.basename(__file__),
@@ -196,6 +245,11 @@ except mysql.connector.Error as err:
         env="dev"
     )
     print(f"[ERROR] Database insert error: {err}")
+=======
+    error_description = traceback.format_exc()
+    print(f"\n Database error: {err}")
+    log_error_to_db("HE_greeks.py", error_description, created_by="greeks_module")
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Greeks.py
 
 finally:
     if 'cursor' in locals():

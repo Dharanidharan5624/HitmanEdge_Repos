@@ -1,5 +1,6 @@
 import smtplib
 import random
+<<<<<<< HEAD
 import traceback
 import mysql.connector
 from mysql.connector import Error
@@ -7,6 +8,12 @@ import sys
 import os
 from HE_database_connect import get_connection
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+=======
+import mysql.connector
+from mysql.connector import Error
+import sys
+from HE_database_connect import get_connection
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c
 from HE_error_logs import log_error_to_db
 
 
@@ -36,6 +43,7 @@ It will expire in 5 minutes.
             server.sendmail(EMAIL_SENDER, recipient_email, email_text)
         print(f"✅ OTP sent to {recipient_email}")
     except Exception as e:
+<<<<<<< HEAD
         error_message = traceback.format_exc()
         log_error_to_db(
             file_name=os.path.basename(__file__),
@@ -43,6 +51,12 @@ It will expire in 5 minutes.
             created_by=None,
             env="dev"
         )
+=======
+        error_message = f"Failed to send email to {recipient_email}: {e}"
+        print(f"❌ {error_message}")
+        log_error_to_db(error_message, type(e).__name__, "otp_generator.py", created_by)
+        exit(1)
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c
 
 def store_or_update_otp(email, otp_code, created_by):
     connection = None
@@ -72,6 +86,7 @@ def store_or_update_otp(email, otp_code, created_by):
             print("✅ OTP stored/updated in DB")
 
     except Error as e:
+<<<<<<< HEAD
         error_message = traceback.format_exc()
         log_error_to_db(
             file_name=os.path.basename(__file__),
@@ -79,6 +94,12 @@ def store_or_update_otp(email, otp_code, created_by):
             created_by=None,
             env="dev"
         )
+=======
+        error_message = f"MySQL Error for email {email}: {e}"
+        print(f"❌ {error_message}")
+        log_error_to_db(error_message, type(e).__name__, "otp_generator.py", created_by)
+        exit(1)
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c
     finally:
         if connection is not None and connection.is_connected():
             connection.close()
@@ -92,6 +113,7 @@ def main():
     try:
         created_by = int(sys.argv[2])  # Convert created_by to int
     except ValueError as e:
+<<<<<<< HEAD
         error_message = traceback.format_exc()
         log_error_to_db(
             file_name=os.path.basename(__file__),
@@ -99,6 +121,12 @@ def main():
             created_by=None,
             env="dev"
         )
+=======
+        error_message = f"Invalid created_by_user_id {sys.argv[2]}: {e}"
+        print(f"❌ {error_message}")
+        log_error_to_db(error_message, type(e).__name__, "otp_generator.py", 1)
+        exit(1)
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c
 
     otp = generate_otp()
     send_email_otp(recipient_email, otp, created_by)

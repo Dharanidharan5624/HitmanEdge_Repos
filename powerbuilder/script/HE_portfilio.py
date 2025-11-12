@@ -4,6 +4,7 @@ from datetime import datetime
 from decimal import Decimal, InvalidOperation
 import yfinance as yf
 from tabulate import tabulate
+<<<<<<< HEAD:powerbuilder/script/HE_portfilio.py
 import traceback
 import os
 import sys
@@ -11,6 +12,8 @@ import sys
 # Ensure local modules can be imported
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
+=======
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/he_portfilio.py
 from HE_database_connect import get_connection
 from HE_error_logs import log_error_to_db
 
@@ -50,6 +53,7 @@ def process_fifo(transactions):
         try:
             quantity = Decimal(t['quantity'])
             price = Decimal(t['price'])
+<<<<<<< HEAD:powerbuilder/script/HE_portfilio.py
         except Exception:
             error_message = traceback.format_exc()
             log_error_to_db(
@@ -58,6 +62,10 @@ def process_fifo(transactions):
                 created_by=None,
                 env="dev"
             )
+=======
+        except InvalidOperation:
+            log_error_to_db("HE_portfilio.py", f"Invalid transaction skipped: {t}")
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/he_portfilio.py
             continue
 
         trade_type = t['trade_type'].lower()
@@ -100,6 +108,7 @@ def fetch_all_user_ids():
         cursor.close()
         conn.close()
         return user_ids
+<<<<<<< HEAD:powerbuilder/script/HE_portfilio.py
     except Exception:
         error_message = traceback.format_exc()
         log_error_to_db(
@@ -108,6 +117,10 @@ def fetch_all_user_ids():
             created_by=None,
             env="dev"
         )
+=======
+    except Exception as err:
+        log_error_to_db("HE_portfilio.py", str(err))
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/he_portfilio.py
         return []
 
 def fetch_fifo_data(created_by):
@@ -289,6 +302,7 @@ def insert_summary_to_db(df):
             cursor.execute(sql, tuple(row))
 
         conn.commit()
+<<<<<<< HEAD:powerbuilder/script/HE_portfilio.py
         print("Portfolio summary inserted/updated without duplicates.")
     except Exception:
         error_message = traceback.format_exc()
@@ -303,9 +317,44 @@ def insert_summary_to_db(df):
             cursor.close()
         if 'conn' in locals() and conn.is_connected():
             conn.close()
+=======
+        cursor.close()
+        conn.close()
+        print("✅ Portfolio summary inserted/updated without duplicates.")
+    except Exception as err:
+        log_error_to_db("HE_Portfolio.py", str(err))
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/he_portfilio.py
 
+
+# # ------------------ Main ------------------
+# def main():
+#     user_ids = fetch_all_user_ids()
+#     if not user_ids:
+#         print("❌ No users found.")
+#         return
+
+#     for user_id in user_ids:
+#         print(f"\n📥 Processing user: {user_id}")
+#         rows = fetch_fifo_data(user_id)
+
+#         if not rows:
+#             print(f"⚠️ No transactions for user {user_id}")
+#             continue
+
+#         df = build_summary(rows)
+#         if not df.empty:
+#             print(tabulate(df, headers='keys', tablefmt='fancy_grid', showindex=False))
+#             insert_summary_to_db(df)
+#         else:
+#             print(f"⚠️ No data to insert for user {user_id}")
+
+# if __name__ == "__main__":
+#     main()
 # ------------------ Main ------------------
+import sys
+
 def main():
+<<<<<<< HEAD:powerbuilder/script/HE_portfilio.py
     try:
         if len(sys.argv) < 2:
             print("Usage: python HE_portfolio.py <user_id>")
@@ -334,6 +383,26 @@ def main():
             created_by=None,
             env="dev"
         )
+=======
+    if len(sys.argv) < 2:
+        print("Usage: python HE_portfolio.py <user_id>")
+        return
+        
+    user_id = sys.argv[1]
+    print(f"\n📥 Processing user: {user_id}")
+
+    rows = fetch_fifo_data(user_id)
+    if not rows:
+        print(f"⚠️ No transactions for user {user_id}")
+        return
+
+    df = build_summary(rows)
+    if not df.empty:
+        print(tabulate(df, headers='keys', tablefmt='fancy_grid', showindex=False))
+        insert_summary_to_db(df)
+    else:
+        print(f"⚠️ No data to insert for user {user_id}")
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/he_portfilio.py
 
 if __name__ == "__main__":
     main()

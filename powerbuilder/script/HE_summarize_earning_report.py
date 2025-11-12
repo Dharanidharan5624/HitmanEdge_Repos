@@ -3,8 +3,14 @@ import nltk
 import traceback
 import os
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
+<<<<<<< HEAD:powerbuilder/script/HE_summarize_earning_report.py
 from HE_database_connect import get_connection
 from HE_error_logs import log_error_to_db
+=======
+from HE_database_connect import get_connection 
+from HE_error_logs import log_error_to_db      
+nltk.download('vader_lexicon', quiet=True)
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Summarize_Earning_Report.py
 
 # Download VADER lexicon silently
 nltk.download('vader_lexicon', quiet=True)
@@ -33,6 +39,7 @@ class EarningsAnalyzer:
                     print("No earnings data found.")
             else:
                 print(f"API request failed with status code {response.status_code}")
+<<<<<<< HEAD:powerbuilder/script/HE_summarize_earning_report.py
         except Exception:
             error_message = traceback.format_exc()
             log_error_to_db(
@@ -41,6 +48,11 @@ class EarningsAnalyzer:
                 created_by=None,
                 env="dev"
             )
+=======
+        except Exception as e:
+            print(f"Error fetching earnings data: {e}")
+            log_error_to_db("HE_summarize_earning_report.py", str(e), created_by="fetch_earnings_data")
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Summarize_Earning_Report.py
         return None
 
     def generate_summary(self):
@@ -65,11 +77,17 @@ class EarningsAnalyzer:
                     created_by=None,
                     env="dev"
                 )
+<<<<<<< HEAD:powerbuilder/script/HE_summarize_earning_report.py
+=======
+            except Exception as e:
+                log_error_to_db("HE_summarize_earning_report.py", str(e), created_by="generate_summary")
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Summarize_Earning_Report.py
         return "No data available."
 
     def analyze_sentiment(self):
         try:
             return self.vader.polarity_scores(self.summary)
+<<<<<<< HEAD:powerbuilder/script/HE_summarize_earning_report.py
         except Exception:
             error_message = traceback.format_exc()
             log_error_to_db(
@@ -78,6 +96,10 @@ class EarningsAnalyzer:
                 created_by=None,
                 env="dev"
             )
+=======
+        except Exception as e:
+            log_error_to_db("HE_summarize_earning_report.py", str(e), created_by="analyze_sentiment")
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Summarize_Earning_Report.py
             return {"compound": 0, "pos": 0, "neu": 1, "neg": 0}
 
     def sentiment_label(self, compound_score):
@@ -124,6 +146,7 @@ class EarningsAnalyzer:
 
             cursor.execute(insert_query, values)
             conn.commit()
+<<<<<<< HEAD:powerbuilder/script/HE_summarize_earning_report.py
             print(f"✅ Data for {self.symbol} successfully saved to database.")
         except Exception:
             error_message = traceback.format_exc()
@@ -134,6 +157,12 @@ class EarningsAnalyzer:
                 created_by=None,
                 env="dev"
             )
+=======
+            print(f"Data for {self.symbol} successfully saved to database.")
+        except Exception as e:
+            print(f"Error saving data to database: {e}")
+            log_error_to_db("HE_summarize_earning_report.py", str(e), created_by="save_to_database")
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Summarize_Earning_Report.py
         finally:
             try:
                 if 'cursor' in locals():
@@ -166,6 +195,7 @@ class EarningsAnalyzer:
             print(f"Final Sentiment Label: {label}")
 
             self.save_to_database()
+<<<<<<< HEAD:powerbuilder/script/HE_summarize_earning_report.py
         except Exception:
             error_message = traceback.format_exc()
             log_error_to_db(
@@ -174,6 +204,10 @@ class EarningsAnalyzer:
                 created_by=None,
                 env="dev"
             )
+=======
+        except Exception as e:
+            log_error_to_db("HE_summarize_earning_report.py", str(e), created_by="display_results")
+>>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Summarize_Earning_Report.py
 
 if __name__ == "__main__":
     analyzer = EarningsAnalyzer(symbol, url)
