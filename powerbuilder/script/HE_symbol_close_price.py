@@ -1,9 +1,7 @@
 import yfinance as yf
 import numpy as np
-import traceback
-import os
 from HE_database_connect import get_connection
-from HE_error_logs import log_error_to_db
+from HE_error_logs import log_error_to_db 
 
 
 indices = {
@@ -13,9 +11,7 @@ indices = {
     "CBOE Volatility Index": "^VIX"
 }
 
-
 def fetch_index_data(symbol):
-    """Fetch latest close and percent change for a given market index."""
     try:
         ticker = yf.Ticker(symbol)
         data = ticker.history(period="2d")
@@ -29,31 +25,23 @@ def fetch_index_data(symbol):
         close_price = data['Close'].iloc[-1]
 
         if open_price == 0:
-            print(f"⚠️ Open price is zero for {symbol}")
+            print(f" Open price is zero for {symbol}")
             return None, None
 
         percent_change = ((close_price - open_price) / open_price) * 100
 
         if np.isnan(percent_change) or np.isinf(percent_change):
-            print(f"⚠️ Invalid percent change for {symbol}")
+            print(f" Invalid percent change for {symbol}")
             return None, None
 
         return float(round(close_price, 2)), float(round(percent_change, 2))
 
-    except Exception:
-        error_message = traceback.format_exc()
-        log_error_to_db(
-            file_name=os.path.basename(__file__),
-            error_description=error_message,
-            created_by=None,
-            env="dev"
-        )
-        print(f"[ERROR] Failed to fetch data for {symbol}. See logs for details.")
+    except Exception as e:
+        print(f" Error fetching data for {symbol}: {e}")
+        log_error_to_db("HE_symbol_close_price.py", str(e), created_by="fetch_index_data")
         return None, None
 
-
 def create_table_if_not_exists(cursor):
-    """Ensure he_index_data table exists before inserting."""
     try:
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS he_index_data (
@@ -63,19 +51,11 @@ def create_table_if_not_exists(cursor):
                 percent_change DECIMAL(6,2)
             )
         """)
-    except Exception:
-        error_message = traceback.format_exc()
-        log_error_to_db(
-            file_name=os.path.basename(__file__),
-            error_description=error_message,
-            created_by=None,
-            env="dev"
-        )
-        print("[ERROR] Failed to create or verify table he_index_data.")
-
+    except Exception as e:
+        print(f" Error creating table: {e}")
+        log_error_to_db("HE_symbol_close_price.py", str(e), created_by="create_table_if_not_exists")
 
 def store_index_data():
-    """Fetch and store index data into the database."""
     try:
         conn = get_connection()
         cursor = conn.cursor()
@@ -96,39 +76,25 @@ def store_index_data():
                             percent_change = VALUES(percent_change)
                     """, (name, symbol, close_price, percent_change))
 
-                    print(f"✅ Inserted: {name} ({symbol}) → Close: {close_price}, Change: {percent_change}%")
-
-                except Exception:
-                    error_message = traceback.format_exc()
-                    log_error_to_db(
-                        file_name=os.path.basename(__file__),
-                        error_description=error_message,
-                        created_by=None,
-                        env="dev"
-                    )
-                    print(f"[Insert Error] Failed to insert {symbol}. Check logs for details.")
+                    print(f" Inserted: {name} ({symbol}) → Close: {close_price}, Change: {percent_change}%")
+                except Exception as insert_err:
+                    print(f" Insert error for {symbol}: {insert_err}")
+                    log_error_to_db("HE_symbol_close_price.py", str(insert_err), created_by="store_index_data - insert")
             else:
-                print(f"⚠️ Skipped: {name} ({symbol}) – Invalid or missing data")
+                print(f" Skipped: {name} ({symbol}) – Invalid or missing data")
 
         conn.commit()
-        print("💾 All data committed to the database successfully.")
+        print(" All data committed to the database.")
 
-    except Exception:
-        error_message = traceback.format_exc()
-        log_error_to_db(
-            file_name=os.path.basename(__file__),
-            error_description=error_message,
-            created_by=None,
-            env="dev"
-        )
-        print("[ERROR] Failed to store index data. See logs for details.")
+    except Exception as e:
+        print(f" Error storing index data: {e}")
+        log_error_to_db("HE_symbol_close_price.py", str(e), created_by="store_index_data")
 
     finally:
-        if 'cursor' in locals() and cursor:
+        if 'cursor' in locals():
             cursor.close()
-        if 'conn' in locals() and conn:
+        if 'conn' in locals():
             conn.close()
-
 
 if __name__ == "__main__":
     store_index_data()

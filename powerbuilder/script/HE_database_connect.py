@@ -10,7 +10,7 @@ sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 try:
     from HE_error_logs import log_error_to_db
 except ImportError:
-    def log_error_to_db(file_name, error_description, created_by=None, env="dev"):
+    def log_error_to_db(file_name, error_description, created_by="system", env="dev"):
         print(f"[ERROR LOGGER FAILED] {error_description}")
 
 _config = None
@@ -74,7 +74,7 @@ def get_connection(env='dev'):
     except mysql.connector.Error as err:
         trace = traceback.format_exc()
         print(f"[ERROR] DB Connection failed: {err}")
-        log_error_to_db("HE_database_connect.py", trace, created_by=None, env=env)
+        log_error_to_db("HE_database_connect.py", trace, created_by="DB_CONNECT", env=env)
         sys.exit(1)
 
 def main():
@@ -90,7 +90,7 @@ def main():
     except mysql.connector.Error as err:
         trace = traceback.format_exc()
         print(f"[ERROR] Query failed: {err}")
-        log_error_to_db("HE_database_connect.py", trace, created_by=None, env='dev')
+        log_error_to_db("HE_database_connect.py", trace, created_by="DB_CONNECT", env='dev')
     finally:
         conn.close()
         print("[INFO] Database connection closed.")

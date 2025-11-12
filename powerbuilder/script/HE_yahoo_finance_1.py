@@ -202,7 +202,7 @@ def get_stock_data(symbol: str):
         log_error_to_db(
             file_name=os.path.basename(__file__),
             error_description=error_message,
-            created_by=None,
+            created_by="Admin",
             env="dev"
         )
         print(f"Error fetching stock data for {symbol}: {e}")
