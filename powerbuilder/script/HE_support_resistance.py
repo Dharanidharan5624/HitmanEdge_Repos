@@ -1,4 +1,3 @@
-import traceback
 import yfinance as yf
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
@@ -9,15 +8,9 @@ import matplotlib.dates as mdates
 from decimal import Decimal, ROUND_HALF_UP
 import pandas as pd
 import numpy as np
-import sys
-import os
 from datetime import datetime
 from mplfinance.original_flavor import candlestick_ohlc
 
-<<<<<<< HEAD:powerbuilder/script/HE_support_resistance.py
-sys.path.append(os.path.abspath(os.path.dirname(__file__)))
-=======
->>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Support_Resistance.py
 from HE_error_logs import log_error_to_db
 
 
@@ -73,34 +66,14 @@ def to_decimal(val, places=2):
             val = val.item()
         return float(Decimal(str(val)).quantize(Decimal(f'1.{"0"*places}'), rounding=ROUND_HALF_UP))
     except Exception as e:
-<<<<<<< HEAD:powerbuilder/script/HE_support_resistance.py
-        error_message = traceback.format_exc()
-        log_error_to_db(
-            file_name=os.path.basename(__file__),
-            error_description=error_message,
-            created_by=None,
-            env="dev"
-        )
-=======
         log_error_to_db("HE_support_resistance.py", str(e), created_by="to_decimal")
->>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Support_Resistance.py
         return 0.0
 
 def localize(df):
     try:
         return df.tz_convert(us_eastern) if df.index.tzinfo else df.tz_localize("UTC").tz_convert(us_eastern)
     except Exception as e:
-<<<<<<< HEAD:powerbuilder/script/HE_support_resistance.py
-        error_message = traceback.format_exc()
-        log_error_to_db(
-            file_name=os.path.basename(__file__),
-            error_description=error_message,
-            created_by=None,
-            env="dev"
-        )
-=======
         log_error_to_db("HE_support_resistance.py", str(e), created_by="localize")
->>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Support_Resistance.py
         return df
 
 
@@ -116,17 +89,7 @@ def zoom(event):
         ax.set_ylim([ydata - (ydata - ylim[0]) * scale_factor, ydata + (ylim[1] - ydata) * scale_factor])
         canvas.draw()
     except Exception as e:
-<<<<<<< HEAD:powerbuilder/script/HE_support_resistance.py
-        error_message = traceback.format_exc()
-        log_error_to_db(
-            file_name=os.path.basename(__file__),
-            error_description=error_message,
-            created_by=None,
-            env="dev"
-        )
-=======
         log_error_to_db("HE_support_resistance.py", str(e), created_by="zoom")
->>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Support_Resistance.py
 
 canvas.mpl_connect("scroll_event", zoom)
 
@@ -258,17 +221,7 @@ def fetch_and_plot(preserve_zoom=True):
         canvas.draw()
 
     except Exception as e:
-<<<<<<< HEAD:powerbuilder/script/HE_support_resistance.py
-        error_message = traceback.format_exc()
-        log_error_to_db(
-            file_name=os.path.basename(__file__),
-            error_description=error_message,
-            created_by=None,
-            env="dev"
-        )
-=======
         log_error_to_db("HE_support_resistance.py", str(e), created_by="fetch_and_plot")
->>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Support_Resistance.py
 
 
 def pan_left(event=None):
@@ -278,17 +231,7 @@ def pan_left(event=None):
         ax.set_xlim(xlim[0] - delta, xlim[1] - delta)
         canvas.draw()
     except Exception as e:
-<<<<<<< HEAD:powerbuilder/script/HE_support_resistance.py
-        error_message = traceback.format_exc()
-        log_error_to_db(
-            file_name=os.path.basename(__file__),
-            error_description=error_message,
-            created_by=None,
-            env="dev"
-        )
-=======
         log_error_to_db("HE_support_resistance.py", str(e), created_by="pan_left")
->>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Support_Resistance.py
 
 def pan_right(event=None):
     try:
@@ -297,17 +240,7 @@ def pan_right(event=None):
         ax.set_xlim(xlim[0] + delta, xlim[1] + delta)
         canvas.draw()
     except Exception as e:
-<<<<<<< HEAD:powerbuilder/script/HE_support_resistance.py
-        error_message = traceback.format_exc()
-        log_error_to_db(
-            file_name=os.path.basename(__file__),
-            error_description=error_message,
-            created_by=None,
-            env="dev"
-        )
-=======
         log_error_to_db("HE_support_resistance.py", str(e), created_by="pan_right")
->>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Support_Resistance.py
 
 # Bindings
 fetch_button.config(command=lambda: fetch_and_plot(preserve_zoom=False))
@@ -321,17 +254,7 @@ def live_updater():
     try:
         fetch_and_plot()
     except Exception as e:
-<<<<<<< HEAD:powerbuilder/script/HE_support_resistance.py
-        error_message = traceback.format_exc()
-        log_error_to_db(
-            file_name=os.path.basename(__file__),
-            error_description=error_message,
-            created_by=None,
-            env="dev"
-        )
-=======
         log_error_to_db("HE_support_resistance.py", str(e), created_by="live_updater")
->>>>>>> a9ff66d5af73e6700e760620d89ca5cc37d6d42c:powerbuilder/script/He_Support_Resistance.py
     root.after(100, live_updater)
 
 
