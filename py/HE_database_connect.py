@@ -4,7 +4,6 @@ import os
 import sys
 import traceback
 
-# Add the script's parent directory to sys.path for module imports
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
 try:
@@ -20,11 +19,9 @@ def load_config():
     if _config:
         return _config
 
-    # Dynamically get the path to config.ini relative to the script's directory
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    # Navigate up one level from \script to \powerbuilder, then to \config\config.ini
-    config_path = os.path.join(script_dir, "..", "config", "config.ini")
-    config_path = os.path.abspath(config_path)  # Resolve to absolute path
+    base_dir = os.path.abspath(os.path.join(script_dir, ".."))
+    config_path = os.path.join(base_dir, "config", "config.ini")
 
     if not os.path.exists(config_path):
         msg = f"Config file not found: {config_path}"
@@ -78,10 +75,8 @@ def get_connection(env='dev'):
         sys.exit(1)
 
 def main():
-    # Automatically attempt to connect to the database (default to 'dev' environment)
     conn = get_connection(env='dev')
     try:
-        # Example: Perform a simple query to verify connection
         cursor = conn.cursor()
         cursor.execute("SELECT DATABASE()")
         db_name = cursor.fetchone()[0]
